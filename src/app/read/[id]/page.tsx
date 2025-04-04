@@ -26,8 +26,6 @@ export default function ReaderPage() {
   const [isLoading, setIsLoading] = useState(true);
   const [fetchError, setFetchError] = useState<{message: string; code?: string} | null>(null);
   const [progress, setProgress] = useState(0);
-  const [isMenuOpen, setIsMenuOpen] = useState(false);
-  const [isContentLoading, setIsContentLoading] = useState(false);
   const [iframeError, setIframeError] = useState(false);
 
   const fetchBookmark = useCallback(async () => {
@@ -71,7 +69,7 @@ export default function ReaderPage() {
     }
   }, [status, id, fetchBookmark, router]);
 
-  const updateProgress = async (newProgress: number) => {
+  const updateProgress = useCallback(async (newProgress: number) => {
     try {
       const response = await fetch('/api/bookmarks', {
         method: 'PATCH',
@@ -94,7 +92,7 @@ export default function ReaderPage() {
     } catch (error) {
       console.error('Error updating progress:', error);
     }
-  };
+  }, [id, router]);
 
   // Calculate reading time and scroll position
   useEffect(() => {
@@ -462,10 +460,15 @@ export default function ReaderPage() {
                     onLoad={(e) => {
                       try {
                         const frame = e.target as HTMLIFrameElement;
-                        if (frame.contentWindow) {
-                          frame.contentWindow.document;
+                        // Accessing contentWindow might throw a cross-origin error
+                        if (!frame.contentWindow) {
+                          throw new Error('Cannot access iframe content window');
                         }
-                      } catch (error) {
+                        // The try block itself acts as the check. If accessing contentWindow
+                        // or its properties fails due to cross-origin restrictions,
+                        // the catch block will be executed.
+                        // No need for: frame.contentWindow.document; 
+                      } catch { // Error variable is not needed here
                         setIframeError(true);
                       }
                     }}
