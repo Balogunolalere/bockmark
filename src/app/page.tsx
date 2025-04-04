@@ -145,43 +145,45 @@ export default function Home() {
   return (
     <div className="min-h-screen bg-gray-50">
       {/* Header */}
-      <header className="sticky top-0 z-40 border-b-4 border-black bg-white px-6 py-4">
-        <div className="mx-auto flex max-w-7xl items-center justify-between">
-          <h1 className="text-4xl font-black tracking-tight text-black">BLOCKMARK</h1>
-          <div className="flex items-center space-x-6">
-            <div className="relative">
+      <header className="sticky top-0 z-40 border-b-4 border-black bg-white px-4 sm:px-6 py-4">
+        <div className="mx-auto flex flex-col sm:flex-row sm:items-center justify-between gap-4">
+          <h1 className="text-3xl sm:text-4xl font-black tracking-tight text-black">BLOCKMARK</h1>
+          <div className="flex flex-col sm:flex-row items-stretch sm:items-center gap-3 sm:gap-6">
+            <div className="relative w-full sm:w-64">
               <input
                 type="search"
                 placeholder="Search bookmarks..."
                 value={searchQuery}
                 onChange={(e) => setSearchQuery(e.target.value)}
-                className="w-64 border-4 border-black bg-white px-4 py-2 pr-10 text-base font-medium focus:outline-none"
+                className="w-full border-4 border-black bg-white px-4 py-2 pr-10 text-base font-medium focus:outline-none"
               />
               <span className="absolute right-3 top-1/2 -translate-y-1/2 transform">
                 🔍
               </span>
             </div>
-            <Link
-              href="/bookmarks/new"
-              className="bg-lime-400 border-4 border-black px-4 py-2 text-base font-bold shadow-[4px_4px_0px_0px_rgba(0,0,0,1)] transition-all hover:translate-x-[2px] hover:translate-y-[2px] hover:shadow-none"
-            >
-              + Add Bookmark
-            </Link>
-            <button
-              onClick={() => signOut()}
-              className="bg-yellow-200 border-4 border-black px-4 py-2 text-base font-bold shadow-[4px_4px_0px_0px_rgba(0,0,0,1)] transition-all hover:translate-x-[2px] hover:translate-y-[2px] hover:shadow-none"
-            >
-              Sign Out
-            </button>
+            <div className="flex gap-3 sm:gap-6">
+              <Link
+                href="/bookmarks/new"
+                className="flex-1 sm:flex-none text-center bg-lime-400 border-4 border-black px-4 py-2 text-base font-bold shadow-[4px_4px_0px_0px_rgba(0,0,0,1)] transition-all hover:translate-x-[2px] hover:translate-y-[2px] hover:shadow-none"
+              >
+                + Add Bookmark
+              </Link>
+              <button
+                onClick={() => signOut()}
+                className="flex-1 sm:flex-none text-center bg-yellow-200 border-4 border-black px-4 py-2 text-base font-bold shadow-[4px_4px_0px_0px_rgba(0,0,0,1)] transition-all hover:translate-x-[2px] hover:translate-y-[2px] hover:shadow-none"
+              >
+                Sign Out
+              </button>
+            </div>
           </div>
         </div>
       </header>
 
-      <main className="mx-auto max-w-7xl px-6 py-8">
-        <div className="grid grid-cols-12 gap-8">
+      <main className="mx-auto max-w-7xl px-4 sm:px-6 py-8">
+        <div className="grid grid-cols-1 lg:grid-cols-12 gap-8">
           {/* Left Sidebar */}
-          <div className="col-span-3 space-y-8">
-            <div className="border-4 border-black bg-white p-6">
+          <div className="lg:col-span-3 space-y-8">
+            <div className="border-4 border-black bg-white p-4 sm:p-6">
               <h2 className="mb-4 text-xl font-bold">Collections</h2>
               <nav className="space-y-2">
                 <button
@@ -215,15 +217,15 @@ export default function Home() {
             </div>
 
             {randomBookmark && (
-              <div className="border-4 border-black bg-purple-200 p-6">
+              <div className="border-4 border-black bg-purple-200 p-4 sm:p-6">
                 <h2 className="mb-4 text-xl font-bold">Random Pick</h2>
                 <div className="border-4 border-black bg-white p-4">
-                  <h3 className="mb-2 font-bold">{randomBookmark.title}</h3>
+                  <h3 className="mb-2 font-bold line-clamp-2">{randomBookmark.title}</h3>
                   <a
                     href={randomBookmark.url}
                     target="_blank"
                     rel="noopener noreferrer"
-                    className="text-sm text-blue-600 underline hover:text-blue-800"
+                    className="text-sm text-blue-600 underline hover:text-blue-800 line-clamp-1"
                   >
                     Visit site →
                   </a>
@@ -233,7 +235,7 @@ export default function Home() {
           </div>
 
           {/* Main Content */}
-          <div className="col-span-9">
+          <div className="lg:col-span-9">
             {isLoading ? (
               <div className="border-4 border-black bg-white p-8 text-center">
                 <p className="text-xl font-bold">Loading bookmarks...</p>
@@ -249,7 +251,7 @@ export default function Home() {
                 </Link>
               </div>
             ) : (
-              <div className="grid grid-cols-1 gap-6 sm:grid-cols-2 lg:grid-cols-3">
+              <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-6">
                 {filteredBookmarks.map((bookmark) => (
                   <div
                     key={bookmark._id}

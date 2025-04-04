@@ -85,25 +85,25 @@ export default function NewBookmarkPage() {
 
   return (
     <div className="min-h-screen bg-gray-50">
-      <header className="sticky top-0 z-40 border-b-4 border-black bg-white px-6 py-4">
-        <div className="mx-auto flex max-w-4xl items-center justify-between">
-          <Link href="/" className="text-3xl font-black tracking-tight text-black">
+      <header className="sticky top-0 z-40 border-b-4 border-black bg-white px-4 sm:px-6 py-4">
+        <div className="mx-auto flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4 max-w-4xl">
+          <Link href="/" className="text-2xl sm:text-3xl font-black tracking-tight text-black">
             BLOCKMARK
           </Link>
           <Link
             href="/"
-            className="bg-yellow-200 border-4 border-black px-4 py-2 text-base font-bold shadow-[4px_4px_0px_0px_rgba(0,0,0,1)] transition-all hover:translate-x-[2px] hover:translate-y-[2px] hover:shadow-none"
+            className="w-full sm:w-auto text-center bg-yellow-200 border-4 border-black px-4 py-2 text-base font-bold shadow-[4px_4px_0px_0px_rgba(0,0,0,1)] transition-all hover:translate-x-[2px] hover:translate-y-[2px] hover:shadow-none"
           >
             ← Back to Bookmarks
           </Link>
         </div>
       </header>
 
-      <div className="mx-auto max-w-2xl px-6 py-12">
-        <div className="border-4 border-black bg-white p-8 md:p-12 shadow-[8px_8px_0px_0px_rgba(0,0,0,1)]">
-          <h1 className="mb-8 text-3xl font-bold">Add New Bookmark</h1>
+      <div className="mx-auto max-w-2xl px-4 sm:px-6 py-8 sm:py-12">
+        <div className="border-4 border-black bg-white p-6 sm:p-8 md:p-12 shadow-[8px_8px_0px_0px_rgba(0,0,0,1)]">
+          <h1 className="mb-8 text-2xl sm:text-3xl font-bold">Add New Bookmark</h1>
 
-          <form onSubmit={handleSubmit} className="space-y-8">
+          <form onSubmit={handleSubmit} className="space-y-6 sm:space-y-8">
             <div className="space-y-2">
               <label htmlFor="url" className="block text-lg font-bold">URL</label>
               <input
@@ -167,7 +167,7 @@ export default function NewBookmarkPage() {
 
             <div className="space-y-3">
               <label className="block text-lg font-bold">Card Color</label>
-              <div className="grid grid-cols-5 gap-3 sm:gap-4">
+              <div className="grid grid-cols-2 sm:grid-cols-5 gap-3 sm:gap-4">
                 {COLORS.map((color) => (
                   <button
                     key={color}
@@ -184,18 +184,18 @@ export default function NewBookmarkPage() {
               </div>
             </div>
 
-            <div className="flex flex-col sm:flex-row space-y-4 sm:space-y-0 sm:space-x-4 pt-6">
+            <div className="flex flex-col sm:flex-row gap-4 pt-6">
               <button
                 type="submit"
                 disabled={isSubmitting}
-                className="flex-1 border-4 border-black bg-lime-400 px-8 py-3 text-lg font-bold shadow-[4px_4px_0px_0px_rgba(0,0,0,1)] transition-all hover:translate-x-[2px] hover:translate-y-[2px] hover:shadow-none disabled:opacity-50 disabled:cursor-not-allowed"
+                className="w-full sm:flex-1 order-2 sm:order-1 border-4 border-black bg-lime-400 px-8 py-3 text-lg font-bold shadow-[4px_4px_0px_0px_rgba(0,0,0,1)] transition-all hover:translate-x-[2px] hover:translate-y-[2px] hover:shadow-none disabled:opacity-50 disabled:cursor-not-allowed"
               >
                 {isSubmitting ? 'Creating...' : 'Create Bookmark'}
               </button>
               <button
                 type="button"
                 onClick={() => router.back()}
-                className="flex-1 sm:flex-none border-4 border-black bg-yellow-200 px-8 py-3 text-lg font-bold shadow-[4px_4px_0px_0px_rgba(0,0,0,1)] transition-all hover:translate-x-[2px] hover:translate-y-[2px] hover:shadow-none"
+                className="w-full sm:w-auto order-1 sm:order-2 border-4 border-black bg-yellow-200 px-8 py-3 text-lg font-bold shadow-[4px_4px_0px_0px_rgba(0,0,0,1)] transition-all hover:translate-x-[2px] hover:translate-y-[2px] hover:shadow-none"
               >
                 Cancel
               </button>

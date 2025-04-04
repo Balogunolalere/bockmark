@@ -120,47 +120,47 @@ export default function ReaderPage() {
 
       {/* Header */}
       <header className="sticky top-0 z-40 border-b-4 border-black bg-pink-200">
-        <div className="mx-auto flex max-w-4xl items-center justify-between px-6 py-4">
-          <div className="flex items-center space-x-4">
+        <div className="mx-auto flex max-w-4xl items-center justify-between px-4 sm:px-6 py-4">
+          <div className="flex items-center space-x-4 overflow-hidden">
             <Link
               href="/"
-              className="bg-white border-4 border-black p-2 text-xl font-bold shadow-[4px_4px_0px_0px_rgba(0,0,0,1)] transition-all hover:translate-x-[2px] hover:translate-y-[2px] hover:shadow-none"
+              className="flex-shrink-0 bg-white border-4 border-black p-2 text-xl font-bold shadow-[4px_4px_0px_0px_rgba(0,0,0,1)] transition-all hover:translate-x-[2px] hover:translate-y-[2px] hover:shadow-none"
             >
               ←
             </Link>
-            <h1 className="text-2xl font-bold line-clamp-1">{bookmark.title}</h1>
+            <h1 className="text-lg sm:text-2xl font-bold line-clamp-1">{bookmark.title}</h1>
           </div>
           <a
             href={bookmark.url}
             target="_blank"
             rel="noopener noreferrer"
-            className="bg-purple-200 border-4 border-black px-4 py-2 text-base font-bold shadow-[4px_4px_0px_0px_rgba(0,0,0,1)] transition-all hover:translate-x-[2px] hover:translate-y-[2px] hover:shadow-none"
+            className="flex-shrink-0 bg-purple-200 border-4 border-black px-4 py-2 text-base font-bold shadow-[4px_4px_0px_0px_rgba(0,0,0,1)] transition-all hover:translate-x-[2px] hover:translate-y-[2px] hover:shadow-none"
           >
             Original →
           </a>
         </div>
       </header>
 
-      <main className="mx-auto max-w-4xl px-6 py-12">
+      <main className="mx-auto max-w-4xl px-4 sm:px-6 py-8 sm:py-12">
         {/* Progress Controls */}
-        <div className="mb-8 flex items-center justify-between rounded-lg border-4 border-black bg-white p-4 shadow-[8px_8px_0px_0px_rgba(0,0,0,1)]">
-          <span className="text-lg font-bold">Reading Progress: {progress}%</span>
-          <div className="flex items-center space-x-2">
+        <div className="mb-8 flex flex-col sm:flex-row items-stretch sm:items-center justify-between gap-4 rounded-lg border-4 border-black bg-white p-4 shadow-[8px_8px_0px_0px_rgba(0,0,0,1)]">
+          <span className="text-base sm:text-lg font-bold">Reading Progress: {progress}%</span>
+          <div className="flex flex-wrap gap-2">
             <button
               onClick={() => updateProgress(Math.max(0, progress - 10))}
-              className="bg-yellow-200 border-4 border-black px-4 py-2 font-bold shadow-[4px_4px_0px_0px_rgba(0,0,0,1)] transition-all hover:translate-x-[2px] hover:translate-y-[2px] hover:shadow-none"
+              className="flex-1 sm:flex-none bg-yellow-200 border-4 border-black px-4 py-2 font-bold shadow-[4px_4px_0px_0px_rgba(0,0,0,1)] transition-all hover:translate-x-[2px] hover:translate-y-[2px] hover:shadow-none"
             >
               -10%
             </button>
             <button
               onClick={() => updateProgress(Math.min(100, progress + 10))}
-              className="bg-lime-400 border-4 border-black px-4 py-2 font-bold shadow-[4px_4px_0px_0px_rgba(0,0,0,1)] transition-all hover:translate-x-[2px] hover:translate-y-[2px] hover:shadow-none"
+              className="flex-1 sm:flex-none bg-lime-400 border-4 border-black px-4 py-2 font-bold shadow-[4px_4px_0px_0px_rgba(0,0,0,1)] transition-all hover:translate-x-[2px] hover:translate-y-[2px] hover:shadow-none"
             >
               +10%
             </button>
             <button
               onClick={() => updateProgress(100)}
-              className="bg-cyan-400 border-4 border-black px-4 py-2 font-bold shadow-[4px_4px_0px_0px_rgba(0,0,0,1)] transition-all hover:translate-x-[2px] hover:translate-y-[2px] hover:shadow-none"
+              className="flex-1 sm:flex-none bg-cyan-400 border-4 border-black px-4 py-2 font-bold shadow-[4px_4px_0px_0px_rgba(0,0,0,1)] transition-all hover:translate-x-[2px] hover:translate-y-[2px] hover:shadow-none"
             >
               Mark as Read
             </button>
@@ -168,7 +168,7 @@ export default function ReaderPage() {
         </div>
 
         {/* Content */}
-        <article className="prose prose-lg mx-auto max-w-none border-4 border-black bg-white p-8 shadow-[8px_8px_0px_0px_rgba(0,0,0,1)]">
+        <article className="prose prose-lg mx-auto max-w-none border-4 border-black bg-white p-4 sm:p-8 shadow-[8px_8px_0px_0px_rgba(0,0,0,1)]">
           <style dangerouslySetInnerHTML={{ __html: `
             .article-content {
               font-family: ui-sans-serif, system-ui, -apple-system, BlinkMacSystemFont, sans-serif;

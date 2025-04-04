@@ -31,7 +31,7 @@ export default function SignInForm() {
   };
 
   return (
-    <form onSubmit={handleSubmit} className="space-y-6 bg-white p-8 border-4 border-black shadow-[8px_8px_0px_0px_rgba(0,0,0,1)]">
+    <form onSubmit={handleSubmit} className="space-y-6 bg-white p-4 sm:p-8 border-4 border-black shadow-[8px_8px_0px_0px_rgba(0,0,0,1)]">
       <div className="space-y-2">
         <label 
           htmlFor="email" 
@@ -44,7 +44,7 @@ export default function SignInForm() {
           type="email"
           value={email}
           onChange={(e) => setEmail(e.target.value)}
-          className="w-full border-4 border-black bg-yellow-50 px-4 py-3 text-base font-medium placeholder:text-gray-500 focus:outline-none"
+          className="w-full border-4 border-black bg-yellow-50 px-3 sm:px-4 py-2 sm:py-3 text-base font-medium placeholder:text-gray-500 focus:outline-none"
           placeholder="name@example.com"
           required
         />
@@ -62,26 +62,26 @@ export default function SignInForm() {
           type="password"
           value={password}
           onChange={(e) => setPassword(e.target.value)}
-          className="w-full border-4 border-black bg-yellow-50 px-4 py-3 text-base font-medium placeholder:text-gray-500 focus:outline-none"
+          className="w-full border-4 border-black bg-yellow-50 px-3 sm:px-4 py-2 sm:py-3 text-base font-medium placeholder:text-gray-500 focus:outline-none"
           required
         />
       </div>
 
       {errorMessage && (
-        <div className="bg-red-100 border-4 border-black p-4 text-sm font-bold text-red-700">
+        <div className="bg-red-100 border-4 border-black p-3 sm:p-4 text-sm font-bold text-red-700">
           {errorMessage}
         </div>
       )}
 
       <button
         type="submit"
-        className="w-full bg-cyan-400 border-4 border-black px-8 py-3 text-lg font-bold text-black shadow-[4px_4px_0px_0px_rgba(0,0,0,1)] transition-all hover:translate-x-[2px] hover:translate-y-[2px] hover:shadow-none"
+        className="w-full bg-cyan-400 border-4 border-black px-6 sm:px-8 py-2 sm:py-3 text-base sm:text-lg font-bold text-black shadow-[4px_4px_0px_0px_rgba(0,0,0,1)] transition-all hover:translate-x-[2px] hover:translate-y-[2px] hover:shadow-none"
       >
         Sign In
       </button>
 
       <div className="text-center">
-        <span className="text-base">Don&apos;t have an account? </span>
+        <span className="text-sm sm:text-base">Don&apos;t have an account? </span>
         <a href="/auth/signup" className="font-bold underline decoration-4 hover:bg-yellow-200">
           Sign up
         </a>
