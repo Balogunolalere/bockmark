@@ -296,13 +296,13 @@ export default function Home() {
                       <div className="flex items-center space-x-2">
                         <Link
                           href={`/read/${bookmark._id}`}
-                          className="bg-white border-2 border-black px-2 py-1 text-sm font-bold opacity-0 transition-opacity hover:bg-yellow-100 group-hover:opacity-100"
+                          className="bg-cyan-400 border-2 border-black px-2 py-1 text-sm font-bold hover:bg-cyan-500 transition-colors"
                         >
                           Read →
                         </Link>
                         <button
-                          onClick={() => handleDeleteClick(bookmark._id)} // Use handleDeleteClick to show confirmation
-                          className="bg-red-500 border-2 border-black p-1 text-white opacity-0 transition-opacity hover:bg-red-600 group-hover:opacity-100"
+                          onClick={() => handleDeleteClick(bookmark._id)}
+                          className="bg-red-500 border-2 border-black p-1 text-white hover:bg-red-600 transition-colors"
                           aria-label="Delete bookmark"
                         >
                           <svg xmlns="http://www.w3.org/2000/svg" className="h-4 w-4" viewBox="0 0 20 20" fill="currentColor">

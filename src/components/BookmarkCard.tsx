@@ -84,22 +84,31 @@ export default function BookmarkCard({ bookmark, onDelete }: BookmarkCardProps) 
       <div className="flex flex-col h-full">
         {/* Main content */}
         <div className="flex-grow">
-          <div className="flex items-center justify-between mb-4">
+          {/* Bookmark title and read button */}
+          <div className="flex items-start justify-between mb-3">
             <Link 
               href={`/read/${bookmark._id}`}
-              className="text-lg font-bold hover:underline line-clamp-2"
+              className="text-lg font-bold hover:underline line-clamp-2 flex-1"
             >
               {bookmark.title}
             </Link>
-            <button
-              onClick={handleDeleteClick}
-              className="ml-2 flex-shrink-0 text-red-500 hover:text-red-600 transition-colors"
-              aria-label="Delete bookmark"
-            >
-              <svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5" viewBox="0 0 20 20" fill="currentColor">
-                <path fillRule="evenodd" d="M9 2a1 1 0 00-.894.553L7.382 4H4a1 1 0 000 2v10a2 2 0 002 2h8a2 2 0 002-2V6a1 1 0 100-2h-3.382l-.724-1.447A1 1 0 0011 2H9zM7 8a1 1 0 012 0v6a1 1 0 11-2 0V8zm4 0a1 1 0 112 0v6a1 1 0 11-2 0V8z" clipRule="evenodd" />
-              </svg>
-            </button>
+            <div className="flex items-center gap-2 ml-2 flex-shrink-0">
+              <Link
+                href={`/read/${bookmark._id}`}
+                className="bg-cyan-400 border-2 border-black px-2 py-1 text-sm font-bold hover:bg-cyan-500 transition-colors"
+              >
+                Read
+              </Link>
+              <button
+                onClick={handleDeleteClick}
+                className="flex-shrink-0 bg-red-500 border-2 border-black p-1 text-white hover:bg-red-600 transition-colors"
+                aria-label="Delete bookmark"
+              >
+                <svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5" viewBox="0 0 20 20" fill="currentColor">
+                  <path fillRule="evenodd" d="M9 2a1 1 0 00-.894.553L7.382 4H4a1 1 0 000 2v10a2 2 0 002 2h8a2 2 0 002-2V6a1 1 0 100-2h-3.382l-.724-1.447A1 1 0 0011 2H9zM7 8a1 1 0 012 0v6a1 1 0 11-2 0V8zm4 0a1 1 0 112 0v6a1 1 0 11-2 0V8z" clipRule="evenodd" />
+                </svg>
+              </button>
+            </div>
           </div>
 
           <a 
