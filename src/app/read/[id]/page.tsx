@@ -4,6 +4,8 @@ import { useCallback, useEffect, useState } from 'react';
 import { useParams, useRouter } from 'next/navigation';
 import { useAuth } from '@/hooks/useAuth';
 import Link from 'next/link';
+import LoadingAnimation from '@/components/ui/LoadingAnimation';
+import ErrorDisplay from '@/components/ui/ErrorDisplay';
 
 interface Bookmark {
   _id: string;
@@ -22,10 +24,16 @@ export default function ReaderPage() {
   const id = params?.id as string;
   const [bookmark, setBookmark] = useState<Bookmark | null>(null);
   const [isLoading, setIsLoading] = useState(true);
+  const [fetchError, setFetchError] = useState<{message: string; code?: string} | null>(null);
   const [progress, setProgress] = useState(0);
   const [isMenuOpen, setIsMenuOpen] = useState(false);
+  const [isContentLoading, setIsContentLoading] = useState(false);
+  const [iframeError, setIframeError] = useState(false);
 
   const fetchBookmark = useCallback(async () => {
+    setIsLoading(true);
+    setFetchError(null);
+    
     try {
       const response = await fetch(`/api/bookmarks?id=${id}`);
       if (!response.ok) {
@@ -33,13 +41,20 @@ export default function ReaderPage() {
           router.push('/auth/signin');
           return;
         }
-        throw new Error('Failed to fetch bookmark');
+        
+        const errorData = await response.json();
+        throw new Error(errorData.message || 'Failed to fetch bookmark');
       }
+      
       const data = await response.json();
       setBookmark(data);
       setProgress(data.progress || 0);
     } catch (error) {
       console.error('Error fetching bookmark:', error);
+      setFetchError({
+        message: error instanceof Error ? error.message : 'An unexpected error occurred',
+        code: 'FETCH_ERROR'
+      });
     } finally {
       setIsLoading(false);
     }
@@ -109,13 +124,51 @@ export default function ReaderPage() {
     return () => window.removeEventListener('scroll', handleScroll);
   }, [bookmark, progress]);
 
+  // Parse the error message from the content if it contains one
+  const parseContentError = useCallback(() => {
+    if (!bookmark?.content) return null;
+    
+    // Check if the content is actually an error message
+    if (bookmark.content.includes('Error Fetching Content') || 
+        bookmark.content.includes('Could not retrieve or parse')) {
+      
+      // Try to extract the error code
+      const errorCodeMatch = bookmark.content.match(/Reason: ([A-Z_]+)/i);
+      const errorCode = errorCodeMatch ? errorCodeMatch[1] : undefined;
+      
+      return {
+        message: 'Could not retrieve or parse the content from the URL.',
+        code: errorCode
+      };
+    }
+    
+    return null;
+  }, [bookmark]);
+  
+  const contentError = parseContentError();
+
   if (isLoading) {
     return (
-      <div className="min-h-screen bg-gray-50 p-4 sm:p-8">
-        <div className="mx-auto max-w-3xl">
-          <div className="border-4 border-black bg-white p-6 sm:p-8 text-center shadow-[8px_8px_0px_0px_rgba(0,0,0,1)]">
-            <p className="text-xl font-bold">Loading article...</p>
+      <div className="min-h-screen bg-gray-50 p-4 sm:p-8 flex items-center justify-center">
+        <div className="mx-auto max-w-3xl w-full">
+          <div className="border-4 border-black bg-white p-8 text-center shadow-[8px_8px_0px_0px_rgba(0,0,0,1)]">
+            <LoadingAnimation size="lg" text="Loading article..." />
           </div>
+        </div>
+      </div>
+    );
+  }
+
+  if (fetchError) {
+    return (
+      <div className="min-h-screen bg-gray-50 p-4 sm:p-8 flex items-center justify-center">
+        <div className="mx-auto max-w-3xl w-full">
+          <ErrorDisplay 
+            title="Failed to Load Bookmark"
+            message={fetchError.message}
+            errorCode={fetchError.code}
+            showHomeButton={true}
+          />
         </div>
       </div>
     );
@@ -123,17 +176,13 @@ export default function ReaderPage() {
 
   if (!bookmark) {
     return (
-      <div className="min-h-screen bg-gray-50 p-4 sm:p-8">
-        <div className="mx-auto max-w-3xl">
-          <div className="border-4 border-black bg-white p-6 sm:p-8 text-center shadow-[8px_8px_0px_0px_rgba(0,0,0,1)]">
-            <h1 className="mb-4 text-2xl font-bold">Bookmark not found</h1>
-            <Link
-              href="/"
-              className="inline-block bg-lime-400 border-4 border-black px-6 py-3 font-bold shadow-[4px_4px_0px_0px_rgba(0,0,0,1)] transition-all hover:translate-x-[2px] hover:translate-y-[2px] hover:shadow-none"
-            >
-              Back to Home
-            </Link>
-          </div>
+      <div className="min-h-screen bg-gray-50 p-4 sm:p-8 flex items-center justify-center">
+        <div className="mx-auto max-w-3xl w-full">
+          <ErrorDisplay 
+            title="Bookmark Not Found"
+            message="We couldn't find the bookmark you're looking for."
+            showHomeButton={true}
+          />
         </div>
       </div>
     );
@@ -374,23 +423,149 @@ export default function ReaderPage() {
               .article-content h3 { font-size: 1.15rem; }
               .article-content pre { padding: 0.75em; }
             }
+            .iframe-container {
+              width: 100%;
+              height: 800px;
+              border: 2px solid #e2e8f0;
+              position: relative;
+              overflow: hidden;
+              margin: 1em 0;
+              background: #f8fafc;
+            }
+            .iframe-container iframe {
+              width: 100%;
+              height: 100%;
+              border: 0;
+            }
+            .iframe-overlay {
+              position: absolute;
+              top: 0;
+              left: 0;
+              width: 100%;
+              padding: 0.5rem;
+              background: rgba(0,0,0,0.7);
+              color: white;
+              font-size: 0.8rem;
+              display: flex;
+              justify-content: space-between;
+              align-items: center;
+            }
+            .iframe-overlay button {
+              background: #22d3ee;
+              color: black;
+              border: 2px solid black;
+              padding: 2px 6px;
+              font-weight: bold;
+              cursor: pointer;
+            }
+            .iframe-fullheight {
+              height: 90vh;
+            }
+            @media (max-width: 640px) {
+              .iframe-container {
+                height: 600px;
+              }
+            }
           ` }} />
-          {bookmark.content ? (
+          
+          {/* Content loading error - Show iframe or fallback */}
+          {contentError ? (
+            <div className="my-4">
+              <div className="bg-yellow-100 border-4 border-black p-4 mb-4">
+                <h3 className="text-xl font-bold mb-2">Original Page</h3>
+                {iframeError ? (
+                  <div className="space-y-4">
+                    <p className="text-red-600 font-bold">This page cannot be embedded due to security restrictions.</p>
+                    <div className="flex flex-col sm:flex-row gap-4">
+                      <a
+                        href={bookmark.url}
+                        target="_blank"
+                        rel="noopener noreferrer"
+                        className="flex-1 bg-lime-400 border-4 border-black px-4 py-3 text-center font-bold shadow-[4px_4px_0px_0px_rgba(0,0,0,1)] transition-all hover:translate-x-[2px] hover:translate-y-[2px] hover:shadow-none"
+                      >
+                        Open in New Tab →
+                      </a>
+                      <button
+                        onClick={() => setIframeError(false)}
+                        className="flex-1 bg-cyan-400 border-4 border-black px-4 py-3 text-center font-bold shadow-[4px_4px_0px_0px_rgba(0,0,0,1)] transition-all hover:translate-x-[2px] hover:translate-y-[2px] hover:shadow-none"
+                      >
+                        Try Loading Again
+                      </button>
+                    </div>
+                  </div>
+                ) : (
+                  <p>The original page is displayed below.</p>
+                )}
+              </div>
+              
+              {!iframeError && (
+                <div className="iframe-container">
+                  <div className="iframe-overlay">
+                    <span>Viewing: {bookmark.url}</span>
+                    <a 
+                      href={bookmark.url} 
+                      target="_blank"
+                      rel="noopener noreferrer"
+                      className="bg-lime-400 border-2 border-black px-2 py-0.5 text-black text-xs font-bold"
+                    >
+                      Open in new tab
+                    </a>
+                  </div>
+                  <iframe 
+                    src={bookmark.url} 
+                    title={bookmark.title}
+                    sandbox="allow-same-origin allow-scripts allow-popups allow-forms"
+                    loading="lazy"
+                    onLoad={(e) => {
+                      try {
+                        // Try to access the iframe content
+                        const frame = e.target as HTMLIFrameElement;
+                        if (frame.contentWindow) {
+                          frame.contentWindow.document;
+                        }
+                      } catch (error) {
+                        // If we can't access the content, it's likely blocked
+                        setIframeError(true);
+                      }
+                    }}
+                  />
+                </div>
+              )}
+              
+              {!iframeError && (
+                <div className="flex justify-center my-4">
+                  <button
+                    onClick={() => {
+                      const iframe = document.querySelector('.iframe-container') as HTMLElement;
+                      if (iframe) {
+                        iframe.classList.toggle('iframe-fullheight');
+                      }
+                    }}
+                    className="bg-cyan-400 border-4 border-black px-4 py-2 text-base font-bold shadow-[4px_4px_0px_0px_rgba(0,0,0,1)] transition-all hover:translate-x-[2px] hover:translate-y-[2px] hover:shadow-none"
+                  >
+                    Toggle Height
+                  </button>
+                </div>
+              )}
+            </div>
+          ) : bookmark.content ? (
             <div 
               dangerouslySetInnerHTML={{ __html: bookmark.content }}
               className="article-content"
             />
           ) : (
-            <div className="text-center py-6">
-              <p className="text-gray-600 mb-4">No readable content found.</p>
-              <a
-                href={bookmark.url}
-                target="_blank"
-                rel="noopener noreferrer"
-                className="inline-block bg-lime-400 border-4 border-black px-6 py-3 font-bold shadow-[4px_4px_0px_0px_rgba(0,0,0,1)] transition-all hover:translate-x-[2px] hover:translate-y-[2px] hover:shadow-none"
-              >
-                View Original
-              </a>
+            <div className="flex flex-col items-center justify-center py-12">
+              <LoadingAnimation size="lg" text="Loading content..." />
+              <div className="mt-6">
+                <a
+                  href={bookmark.url}
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  className="inline-block bg-purple-200 border-4 border-black px-6 py-3 font-bold shadow-[4px_4px_0px_0px_rgba(0,0,0,1)] transition-all hover:translate-x-[2px] hover:translate-y-[2px] hover:shadow-none"
+                >
+                  View Original →
+                </a>
+              </div>
             </div>
           )}
 
