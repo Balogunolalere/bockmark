@@ -190,70 +190,6 @@ export default function ReaderPage() {
 
   return (
     <div className="flex flex-col min-h-screen bg-gray-50">
-      {/* Fixed Progress Bar */}
-      <div className="fixed top-0 left-0 z-50 h-2 w-full bg-gray-200">
-        <div
-          className="h-full bg-cyan-400 transition-all duration-300"
-          style={{ width: `${progress}%` }}
-        />
-      </div>
-
-      {/* Mobile Menu Button */}
-      <button
-        onClick={() => setIsMenuOpen(!isMenuOpen)}
-        className="fixed bottom-4 right-4 z-50 flex h-12 w-12 items-center justify-center rounded-full bg-cyan-400 border-4 border-black shadow-[4px_4px_0px_0px_rgba(0,0,0,1)] lg:hidden"
-        aria-label="Toggle menu"
-      >
-        <svg xmlns="http://www.w3.org/2000/svg" className="h-6 w-6" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 6h16M4 12h16M4 18h16" />
-        </svg>
-      </button>
-
-      {/* Progress Menu (Mobile) */}
-      {isMenuOpen && (
-        <div className="fixed bottom-[68px] right-4 z-50 w-64 bg-white border-4 border-black p-4 shadow-[8px_8px_0px_0px_rgba(0,0,0,1)] lg:hidden">
-          <div className="mb-2">
-            <span className="font-bold">Progress: {progress}%</span>
-          </div>
-          <div className="mb-2 grid grid-cols-2 gap-2">
-            <button
-              onClick={() => updateProgress(Math.max(0, progress - 10))}
-              className="bg-yellow-200 border-2 border-black px-2 py-1 text-sm font-bold shadow-[2px_2px_0px_0px_rgba(0,0,0,1)]"
-            >
-              -10%
-            </button>
-            <button
-              onClick={() => updateProgress(Math.min(100, progress + 10))}
-              className="bg-lime-400 border-2 border-black px-2 py-1 text-sm font-bold shadow-[2px_2px_0px_0px_rgba(0,0,0,1)]"
-            >
-              +10%
-            </button>
-          </div>
-          <div className="flex justify-between">
-            <Link
-              href="/"
-              className="bg-pink-200 border-2 border-black px-2 py-1 text-sm font-bold shadow-[2px_2px_0px_0px_rgba(0,0,0,1)]"
-            >
-              Home
-            </Link>
-            <a
-              href={bookmark.url}
-              target="_blank"
-              rel="noopener noreferrer"
-              className="bg-purple-200 border-2 border-black px-2 py-1 text-sm font-bold shadow-[2px_2px_0px_0px_rgba(0,0,0,1)]"
-            >
-              Original
-            </a>
-            <button
-              onClick={() => updateProgress(100)}
-              className="bg-cyan-400 border-2 border-black px-2 py-1 text-sm font-bold shadow-[2px_2px_0px_0px_rgba(0,0,0,1)]"
-            >
-              Done
-            </button>
-          </div>
-        </div>
-      )}
-
       {/* Header */}
       <header className="sticky top-2 z-40 mx-4 sm:mx-auto max-w-3xl">
         <div className="flex items-center justify-between rounded-lg border-4 border-black bg-pink-200 px-3 sm:px-6 py-3">
@@ -278,33 +214,7 @@ export default function ReaderPage() {
           </div>
         </div>
       </header>
-
       <main className="flex-grow mx-auto w-full max-w-3xl px-4 py-6">
-        {/* Progress Display (Desktop) */}
-        <div className="sticky top-[calc(0.5rem+4rem)] z-30 hidden lg:flex items-center justify-end mb-6 gap-2">
-          <div className="flex items-center rounded-full border-4 border-black bg-white px-4 py-2 shadow-[4px_4px_0px_0px_rgba(0,0,0,1)]">
-            <span className="text-sm font-bold mr-2">Progress: {progress}%</span>
-            <button
-              onClick={() => updateProgress(Math.max(0, progress - 10))}
-              className="bg-yellow-200 border-2 border-black px-2 py-0.5 text-xs font-bold rounded-l-sm hover:bg-yellow-300"
-            >
-              -10%
-            </button>
-            <button
-              onClick={() => updateProgress(Math.min(100, progress + 10))}
-              className="bg-lime-400 border-2 border-black px-2 py-0.5 text-xs font-bold hover:bg-lime-500"
-            >
-              +10%
-            </button>
-            <button
-              onClick={() => updateProgress(100)}
-              className="bg-cyan-400 border-2 border-black px-2 py-0.5 text-xs font-bold rounded-r-sm hover:bg-cyan-500 ml-1"
-            >
-              Done
-            </button>
-          </div>
-        </div>
-
         {/* Content */}
         <article className="prose prose-lg mx-auto w-full border-4 border-black bg-white p-4 sm:p-6 md:p-8 shadow-[8px_8px_0px_0px_rgba(0,0,0,1)]">
           {/* Category and Tags if available */}
@@ -326,7 +236,6 @@ export default function ReaderPage() {
               ))}
             </div>
           )}
-
           <style dangerouslySetInnerHTML={{ __html: `
             .article-content {
               font-family: ui-sans-serif, system-ui, -apple-system, BlinkMacSystemFont, sans-serif;
@@ -518,13 +427,11 @@ export default function ReaderPage() {
                     loading="lazy"
                     onLoad={(e) => {
                       try {
-                        // Try to access the iframe content
                         const frame = e.target as HTMLIFrameElement;
                         if (frame.contentWindow) {
                           frame.contentWindow.document;
                         }
                       } catch (error) {
-                        // If we can't access the content, it's likely blocked
                         setIframeError(true);
                       }
                     }}
@@ -568,41 +475,6 @@ export default function ReaderPage() {
               </div>
             </div>
           )}
-
-          {/* Bottom progress bar */}
-          <div className="mt-12 pt-6 border-t-2 border-gray-200">
-            <div className="flex flex-col sm:flex-row items-center justify-between gap-4">
-              <div className="w-full sm:w-auto">
-                <div className="h-4 w-full sm:w-40 bg-gray-200 rounded-full overflow-hidden">
-                  <div 
-                    className="h-full bg-cyan-400" 
-                    style={{ width: `${progress}%` }}
-                  ></div>
-                </div>
-                <p className="text-sm text-center sm:text-left mt-1">Progress: {progress}%</p>
-              </div>
-              <div className="flex gap-2">
-                <button
-                  onClick={() => updateProgress(Math.max(0, progress - 10))}
-                  className="bg-yellow-200 border-2 border-black px-3 py-1 text-sm font-bold shadow-[2px_2px_0px_0px_rgba(0,0,0,1)] hover:bg-yellow-300"
-                >
-                  -10%
-                </button>
-                <button
-                  onClick={() => updateProgress(Math.min(100, progress + 10))}
-                  className="bg-lime-400 border-2 border-black px-3 py-1 text-sm font-bold shadow-[2px_2px_0px_0px_rgba(0,0,0,1)] hover:bg-lime-500"
-                >
-                  +10%
-                </button>
-                <button
-                  onClick={() => updateProgress(100)}
-                  className="bg-cyan-400 border-2 border-black px-3 py-1 text-sm font-bold shadow-[2px_2px_0px_0px_rgba(0,0,0,1)] hover:bg-cyan-500"
-                >
-                  Mark as Read
-                </button>
-              </div>
-            </div>
-          </div>
         </article>
         
         {/* Back to home button */}
