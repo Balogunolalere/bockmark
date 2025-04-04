@@ -122,7 +122,7 @@ export default function ReaderPage() {
 
     window.addEventListener('scroll', handleScroll);
     return () => window.removeEventListener('scroll', handleScroll);
-  }, [bookmark, progress]);
+  }, [bookmark, progress, updateProgress]);
 
   // Parse the error message from the content if it contains one
   const parseContentError = useCallback(() => {
@@ -190,6 +190,14 @@ export default function ReaderPage() {
 
   return (
     <div className="flex flex-col min-h-screen bg-gray-50">
+      {/* Fixed Progress Bar */}
+      <div className="fixed top-0 left-0 z-50 h-2 w-full bg-gray-200">
+        <div
+          className="h-full bg-cyan-400 transition-all duration-300"
+          style={{ width: `${progress}%` }}
+        />
+      </div>
+
       {/* Header */}
       <header className="sticky top-2 z-40 mx-4 sm:mx-auto max-w-3xl">
         <div className="flex items-center justify-between rounded-lg border-4 border-black bg-pink-200 px-3 sm:px-6 py-3">
@@ -214,6 +222,32 @@ export default function ReaderPage() {
           </div>
         </div>
       </header>
+
+      {/* Progress Display (Desktop) */}
+      <div className="sticky top-[calc(0.5rem+4rem)] z-30 hidden lg:flex items-center justify-end mb-6 gap-2 max-w-3xl mx-auto w-full px-4">
+        <div className="flex items-center rounded-full border-4 border-black bg-white px-4 py-2 shadow-[4px_4px_0px_0px_rgba(0,0,0,1)]">
+          <span className="text-sm font-bold mr-2">Progress: {progress}%</span>
+          <button
+            onClick={() => updateProgress(Math.max(0, progress - 10))}
+            className="bg-yellow-200 border-2 border-black px-2 py-0.5 text-xs font-bold rounded-l-sm hover:bg-yellow-300"
+          >
+            -10%
+          </button>
+          <button
+            onClick={() => updateProgress(Math.min(100, progress + 10))}
+            className="bg-lime-400 border-2 border-black px-2 py-0.5 text-xs font-bold hover:bg-lime-500"
+          >
+            +10%
+          </button>
+          <button
+            onClick={() => updateProgress(100)}
+            className="bg-cyan-400 border-2 border-black px-2 py-0.5 text-xs font-bold rounded-r-sm hover:bg-cyan-500 ml-1"
+          >
+            Done
+          </button>
+        </div>
+      </div>
+
       <main className="flex-grow mx-auto w-full max-w-3xl px-4 py-6">
         {/* Content */}
         <article className="prose prose-lg mx-auto w-full border-4 border-black bg-white p-4 sm:p-6 md:p-8 shadow-[8px_8px_0px_0px_rgba(0,0,0,1)]">

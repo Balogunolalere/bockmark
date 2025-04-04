@@ -5,6 +5,7 @@ import { useRouter } from 'next/navigation';
 import Link from 'next/link';
 import { signOut } from 'next-auth/react';
 import { useAuth } from '@/hooks/useAuth';
+import Image from 'next/image';
 
 interface Bookmark {
   _id: string;
@@ -248,7 +249,14 @@ export default function Home() {
             ) : filteredBookmarks.length === 0 ? (
               <div className="border-4 border-black bg-white p-8 text-center rounded-lg">
                 <p className="text-xl font-bold mb-4">No bookmarks found</p>
-                <img src="/file.svg" alt="No bookmarks" className="mx-auto w-32 h-32 mb-4" />
+                <div className="relative w-32 h-32 mx-auto mb-4">
+                  <Image 
+                    src="/file.svg"
+                    alt="No bookmarks"
+                    fill
+                    style={{ objectFit: 'contain' }}
+                  />
+                </div>
                 <Link
                   href="/bookmarks/new"
                   className="mt-4 inline-block bg-lime-400 border-4 border-black px-6 py-3 font-bold shadow-[4px_4px_0px_0px_rgba(0,0,0,1)] transition-all hover:translate-x-[2px] hover:translate-y-[2px] hover:shadow-none rounded-md"
