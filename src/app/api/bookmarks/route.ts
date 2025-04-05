@@ -6,6 +6,7 @@ import { authOptions } from '@/lib/auth.config';
 import { JSDOM } from 'jsdom';
 import { Readability } from '@mozilla/readability';
 import axios, { AxiosError } from 'axios';
+import mongoose from 'mongoose';
 
 // Array of user agents to rotate through
 const USER_AGENTS = [
@@ -15,6 +16,26 @@ const USER_AGENTS = [
   'Mozilla/5.0 (Windows NT 10.0; Win64; x64; rv:124.0) Gecko/20100101 Firefox/124.0',
   'Mozilla/5.0 (iPad; CPU OS 17_4 like Mac OS X) AppleWebKit/605.1.15 (KHTML, like Gecko) CriOS/124.0.0.0 Mobile/15E148 Safari/604.1'
 ];
+
+// Cache User-Agent for reuse
+const userAgent = USER_AGENTS[Math.floor(Math.random() * USER_AGENTS.length)];
+
+// Cache headers for reuse
+const commonHeaders = {
+  'User-Agent': userAgent,
+  'Accept': 'text/html,application/xhtml+xml,application/xml;q=0.9,image/avif,image/webp,*/*;q=0.8',
+  'Accept-Language': 'en-US,en;q=0.5',
+};
+
+// Cache connection promise
+let cachedConnection: Promise<typeof mongoose> | null = null;
+
+async function getConnection() {
+  if (!cachedConnection) {
+    cachedConnection = connectToDatabase();
+  }
+  return cachedConnection;
+}
 
 async function extractReadableContent(html: string, url: string) {
   // Create a DOM from the HTML
@@ -155,7 +176,7 @@ export async function POST(req: Request) {
     return NextResponse.json({ message: 'Unauthorized' }, { status: 401 });
   }
 
-  await connectToDatabase();
+  await getConnection();
 
   try {
     const body = await req.json();
@@ -170,14 +191,9 @@ export async function POST(req: Request) {
 
     try {
       // Fetch HTML content from the URL with a timeout and rotating user agent
-      const userAgent = USER_AGENTS[Math.floor(Math.random() * USER_AGENTS.length)];
       const response = await axios.get(url, { 
         timeout: 15000,
-        headers: {
-          'User-Agent': userAgent,
-          'Accept': 'text/html,application/xhtml+xml,application/xml;q=0.9,image/avif,image/webp,*/*;q=0.8',
-          'Accept-Language': 'en-US,en;q=0.5',
-        }
+        headers: commonHeaders
       });
 
       // Extract and process the content
@@ -244,34 +260,46 @@ export async function GET(req: Request) {
       return NextResponse.json({ message: 'Unauthorized' }, { status: 401 });
     }
 
-    await connectToDatabase();
+    await getConnection();
 
     // Check if a specific bookmark ID is requested
     const { searchParams } = new URL(req.url);
     const id = searchParams.get('id');
 
+    // Set cache-control headers
+    const headers = {
+      'Cache-Control': 'private, s-maxage=60, stale-while-revalidate=300'
+    };
+
     if (id) {
       const bookmark = await Bookmark.findOne({
         _id: id,
         userId: session.user.id
-      });
+      }).lean(); // Use lean() for better performance
 
       if (!bookmark) {
         return NextResponse.json(
           { message: 'Bookmark not found' },
-          { status: 404 }
+          { status: 404, headers }
         );
       }
 
-      return NextResponse.json(bookmark);
+      return NextResponse.json(bookmark, { headers });
     }
 
-    // Otherwise return all bookmarks
+    // Get all bookmarks with pagination support
+    const page = parseInt(searchParams.get('page') || '1');
+    const limit = parseInt(searchParams.get('limit') || '50');
+    const skip = (page - 1) * limit;
+
     const bookmarks = await Bookmark.find({ userId: session.user.id })
       .sort({ createdAt: -1 })
+      .skip(skip)
+      .limit(limit)
+      .lean()
       .exec();
 
-    return NextResponse.json(bookmarks);
+    return NextResponse.json(bookmarks, { headers });
   } catch (error) {
     console.error('Bookmark fetch error:', error);
     return NextResponse.json(
@@ -297,12 +325,12 @@ export async function PATCH(req: Request) {
       );
     }
 
-    await connectToDatabase();
+    await getConnection();
 
-    const bookmark = await Bookmark.findByIdAndUpdate(
-      id,
+    const bookmark = await Bookmark.findOneAndUpdate(
+      { _id: id, userId: session.user.id },
       { ...updateData, updatedAt: new Date() },
-      { new: true }
+      { new: true, lean: true }
     );
 
     if (!bookmark) {
@@ -339,13 +367,13 @@ export async function DELETE(req: Request) {
       );
     }
 
-    await connectToDatabase();
+    await getConnection();
 
     // First verify the bookmark exists and belongs to the user
     const bookmark = await Bookmark.findOneAndDelete({
       _id: id,
       userId: session.user.id
-    });
+    }).lean();
 
     if (!bookmark) {
       return NextResponse.json(

@@ -5,6 +5,7 @@ import { useRouter } from 'next/navigation';
 import Link from 'next/link';
 import { usePathname } from 'next/navigation';
 import { useSession } from 'next-auth/react';
+import { motion } from 'framer-motion';
 
 export default function Navigation() {
   const router = useRouter();
@@ -15,42 +16,92 @@ export default function Navigation() {
     await signOut({
       redirect: false
     });
-    router.refresh();  // Refresh to update session state
-    router.replace('/auth/signin');  // Use replace instead of push to prevent back navigation
+    router.refresh();
+    router.replace('/auth/signin');
+  };
+
+  const navItemVariants = {
+    initial: { opacity: 0, y: -10 },
+    animate: { opacity: 1, y: 0 },
+    hover: { scale: 1.05 }
+  };
+
+  const listVariants = {
+    animate: {
+      transition: {
+        staggerChildren: 0.1
+      }
+    }
   };
 
   return (
-    <nav>
-      <ul>
-        <li>
-          <Link href="/">
-            <a className={pathname === '/' ? 'active' : ''}>Home</a>
+    <motion.nav
+      initial={{ opacity: 0 }}
+      animate={{ opacity: 1 }}
+      transition={{ duration: 0.3 }}
+      className="px-4 py-3 bg-white border-b-4 border-black mb-8"
+    >
+      <motion.ul 
+        className="flex items-center gap-6 max-w-7xl mx-auto"
+        variants={listVariants}
+        initial="initial"
+        animate="animate"
+      >
+        <motion.li variants={navItemVariants} whileHover="hover">
+          <Link 
+            href="/" 
+            className={`font-medium ${pathname === '/' ? 'text-cyan-600' : 'text-gray-600 hover:text-gray-900'}`}
+          >
+            Home
           </Link>
-        </li>
-        <li>
-          <Link href="/about">
-            <a className={pathname === '/about' ? 'active' : ''}>About</a>
+        </motion.li>
+        <motion.li variants={navItemVariants} whileHover="hover">
+          <Link 
+            href="/bookmarks" 
+            className={`font-medium ${pathname === '/bookmarks' ? 'text-cyan-600' : 'text-gray-600 hover:text-gray-900'}`}
+          >
+            Bookmarks
           </Link>
-        </li>
+        </motion.li>
+        <motion.li variants={navItemVariants} whileHover="hover">
+          <Link 
+            href="/recent" 
+            className={`font-medium ${pathname === '/recent' ? 'text-cyan-600' : 'text-gray-600 hover:text-gray-900'}`}
+          >
+            Recent
+          </Link>
+        </motion.li>
         {session ? (
           <>
-            <li>
-              <Link href="/profile">
-                <a className={pathname === '/profile' ? 'active' : ''}>Profile</a>
+            <motion.li variants={navItemVariants} whileHover="hover">
+              <Link 
+                href="/bookmarks/new"
+                className={`font-medium ${pathname === '/bookmarks/new' ? 'text-cyan-600' : 'text-gray-600 hover:text-gray-900'}`}
+              >
+                New Bookmark
               </Link>
-            </li>
-            <li>
-              <button onClick={handleSignOut}>Sign Out</button>
-            </li>
+            </motion.li>
+            <motion.li variants={navItemVariants} whileHover="hover">
+              <motion.button
+                onClick={handleSignOut}
+                className="px-4 py-2 bg-red-500 text-white font-medium border-2 border-black hover:bg-red-600"
+                whileTap={{ scale: 0.95 }}
+              >
+                Sign Out
+              </motion.button>
+            </motion.li>
           </>
         ) : (
-          <li>
-            <Link href="/auth/signin">
-              <a className={pathname === '/auth/signin' ? 'active' : ''}>Sign In</a>
+          <motion.li variants={navItemVariants} whileHover="hover">
+            <Link 
+              href="/auth/signin"
+              className={`font-medium ${pathname === '/auth/signin' ? 'text-cyan-600' : 'text-gray-600 hover:text-gray-900'}`}
+            >
+              Sign In
             </Link>
-          </li>
+          </motion.li>
         )}
-      </ul>
-    </nav>
+      </motion.ul>
+    </motion.nav>
   );
 }

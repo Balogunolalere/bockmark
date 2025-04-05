@@ -1,9 +1,11 @@
 'use client';
 
-import { useEffect, useState } from 'react';
 import { useAuth } from '@/hooks/useAuth';
 import Link from 'next/link';
 import BookmarkCard from '@/components/BookmarkCard';
+import { PageTransition } from '@/components/ui/PageTransition';
+import { motion } from 'framer-motion';
+import useSWR from 'swr';
 
 interface Bookmark {
   _id: string;
@@ -16,84 +18,118 @@ interface Bookmark {
 }
 
 export default function BookmarksPage() {
-  const { isAuthenticated, isLoading } = useAuth();
-  const [bookmarks, setBookmarks] = useState<Bookmark[]>([]);
-  const [loading, setLoading] = useState(true);
-
-  useEffect(() => {
-    if (isAuthenticated) {
-      fetchBookmarks();
+  const { isAuthenticated, isLoading: authLoading } = useAuth();
+  
+  const { data: bookmarks = [], isLoading: bookmarksLoading, mutate } = useSWR<Bookmark[]>(
+    isAuthenticated ? '/api/bookmarks' : null,
+    async (url) => {
+      const res = await fetch(url);
+      if (!res.ok) throw new Error('Failed to fetch bookmarks');
+      return res.json();
+    },
+    {
+      revalidateOnFocus: false,
+      revalidateOnReconnect: false,
+      dedupingInterval: 60000 // Dedupe requests within 1 minute
     }
-  }, [isAuthenticated]);
+  );
 
-  const fetchBookmarks = async () => {
-    try {
-      const response = await fetch('/api/bookmarks');
-      if (!response.ok) throw new Error('Failed to fetch bookmarks');
-      const data = await response.json();
-      setBookmarks(data);
-    } catch (error) {
-      console.error('Error fetching bookmarks:', error);
-    } finally {
-      setLoading(false);
-    }
+  const handleDelete = async (deletedId: string) => {
+    // Optimistically update UI
+    const updatedBookmarks = bookmarks.filter(bookmark => bookmark._id !== deletedId);
+    mutate(updatedBookmarks, false);
   };
 
-  const handleDelete = (deletedId: string) => {
-    setBookmarks(bookmarks.filter(bookmark => bookmark._id !== deletedId));
-  };
-
-  if (isLoading || loading) {
+  if (authLoading || bookmarksLoading) {
     return (
-      <div className="min-h-screen bg-gray-50 p-8">
-        <div className="mx-auto max-w-7xl">
-          <div className="border-4 border-black bg-white p-8 text-center shadow-[8px_8px_0px_0px_rgba(0,0,0,1)]">
-            <p className="text-xl font-bold">Loading bookmarks...</p>
+      <PageTransition>
+        <div className="min-h-screen bg-gray-50 p-8">
+          <div className="mx-auto max-w-7xl">
+            <motion.div 
+              initial={{ scale: 0.9 }}
+              animate={{ scale: 1 }}
+              transition={{ 
+                repeat: Infinity, 
+                repeatType: "reverse", 
+                duration: 1 
+              }}
+              className="border-4 border-black bg-white p-8 text-center shadow-[8px_8px_0px_0px_rgba(0,0,0,1)]"
+            >
+              <p className="text-xl font-bold">Loading bookmarks...</p>
+            </motion.div>
           </div>
         </div>
-      </div>
+      </PageTransition>
     );
   }
 
   return (
-    <div className="min-h-screen bg-gray-50">
-      <header className="sticky top-0 z-40 border-b-4 border-black bg-white px-6 py-4">
-        <div className="mx-auto flex max-w-7xl items-center justify-between">
-          <Link href="/" className="text-4xl font-black tracking-tight">
-            BLOCKMARK
-          </Link>
-          <Link
-            href="/bookmarks/new"
-            className="bg-lime-400 border-4 border-black px-4 py-2 text-base font-bold shadow-[4px_4px_0px_0px_rgba(0,0,0,1)] transition-all hover:translate-x-[2px] hover:translate-y-[2px] hover:shadow-none"
-          >
-            + Add Bookmark
-          </Link>
-        </div>
-      </header>
-
-      <main className="mx-auto max-w-7xl px-6 py-8">
-        {bookmarks.length === 0 ? (
-          <div className="border-4 border-black bg-white p-8 text-center shadow-[8px_8px_0px_0px_rgba(0,0,0,1)]">
-            <p className="text-xl font-bold">No bookmarks yet</p>
-            <Link
-              href="/bookmarks/new"
-              className="mt-4 inline-block bg-lime-400 border-4 border-black px-6 py-3 font-bold shadow-[4px_4px_0px_0px_rgba(0,0,0,1)] transition-all hover:translate-x-[2px] hover:translate-y-[2px] hover:shadow-none"
-            >
-              Add Your First Bookmark
+    <PageTransition>
+      <div className="min-h-screen bg-gray-50">
+        <motion.header
+          initial={{ y: -100 }}
+          animate={{ y: 0 }}
+          className="sticky top-0 z-40 border-b-4 border-black bg-white px-6 py-4"
+        >
+          <div className="mx-auto flex max-w-7xl items-center justify-between">
+            <Link href="/" className="text-4xl font-black tracking-tight">
+              BLOCKMARK
             </Link>
+            <motion.div whileHover={{ scale: 1.05 }} whileTap={{ scale: 0.95 }}>
+              <Link
+                href="/bookmarks/new"
+                className="bg-lime-400 border-4 border-black px-4 py-2 text-base font-bold shadow-[4px_4px_0px_0px_rgba(0,0,0,1)] transition-all hover:translate-x-[2px] hover:translate-y-[2px] hover:shadow-none"
+              >
+                + Add Bookmark
+              </Link>
+            </motion.div>
           </div>
-        ) : (
-          <div className="grid grid-cols-1 gap-6 md:grid-cols-2 lg:grid-cols-3">
-            {bookmarks.map((bookmark) => (
-              <BookmarkCard 
-                key={bookmark._id} 
-                bookmark={bookmark}
-                onDelete={handleDelete}
-              />
-            ))}
-          </div>
-        )}
-      </main>
-    </div>
+        </motion.header>
+
+        <main className="mx-auto max-w-7xl px-6 py-8">
+          {bookmarks.length === 0 ? (
+            <motion.div 
+              initial={{ opacity: 0, scale: 0.9 }}
+              animate={{ opacity: 1, scale: 1 }}
+              transition={{ duration: 0.3 }}
+              className="border-4 border-black bg-white p-8 text-center shadow-[8px_8px_0px_0px_rgba(0,0,0,1)]"
+            >
+              <p className="text-xl font-bold">No bookmarks yet</p>
+              <motion.div whileHover={{ scale: 1.05 }} whileTap={{ scale: 0.95 }}>
+                <Link
+                  href="/bookmarks/new"
+                  className="mt-4 inline-block bg-lime-400 border-4 border-black px-6 py-3 font-bold shadow-[4px_4px_0px_0px_rgba(0,0,0,1)] transition-all hover:translate-x-[2px] hover:translate-y-[2px] hover:shadow-none"
+                >
+                  Add Your First Bookmark
+                </Link>
+              </motion.div>
+            </motion.div>
+          ) : (
+            <motion.div 
+              variants={{
+                hidden: { opacity: 0 },
+                show: {
+                  opacity: 1,
+                  transition: {
+                    staggerChildren: 0.1
+                  }
+                }
+              }}
+              initial="hidden"
+              animate="show"
+              className="grid grid-cols-1 gap-6 md:grid-cols-2 lg:grid-cols-3"
+            >
+              {bookmarks.map((bookmark) => (
+                <BookmarkCard 
+                  key={bookmark._id} 
+                  bookmark={bookmark}
+                  onDelete={handleDelete}
+                />
+              ))}
+            </motion.div>
+          )}
+        </main>
+      </div>
+    </PageTransition>
   );
 }

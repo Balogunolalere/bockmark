@@ -1,5 +1,21 @@
 import mongoose from 'mongoose';
 
+export interface IBookmark {
+  _id: string;
+  url: string;
+  title: string;
+  content?: string;
+  category: string;
+  color?: string;
+  readingTime?: number;
+  progress?: number;
+  isFavorite: boolean;
+  userId: string;
+  tags?: string[];
+  createdAt: Date;
+  updatedAt: Date;
+}
+
 const bookmarkSchema = new mongoose.Schema({
   url: { type: String, required: true },
   title: { type: String, required: true },
@@ -21,3 +37,4 @@ bookmarkSchema.pre('save', function(next) {
 });
 
 export const Bookmark = mongoose.models.Bookmark || mongoose.model('Bookmark', bookmarkSchema);
+export type BookmarkDocument = mongoose.Document & IBookmark;

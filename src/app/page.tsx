@@ -5,6 +5,8 @@ import { useRouter } from 'next/navigation';
 import Link from 'next/link';
 import { signOut } from 'next-auth/react';
 import { useAuth } from '@/hooks/useAuth';
+import { motion } from 'framer-motion';
+import useSWR from 'swr';
 import Image from 'next/image';
 
 interface Bookmark {
@@ -19,15 +21,28 @@ interface Bookmark {
 }
 
 export default function Home() {
-  const { session, status } = useAuth();
+  const { status } = useAuth();
   const router = useRouter();
-  const [bookmarks, setBookmarks] = useState<Bookmark[]>([]);
-  const [isLoading, setIsLoading] = useState(true);
   const [activeFilter, setActiveFilter] = useState('all');
   const [searchQuery, setSearchQuery] = useState('');
+  const [showDeleteConfirmId, setShowDeleteConfirmId] = useState<string | null>(null);
+  const [isDeleting, setIsDeleting] = useState(false);
+
+  const { data: bookmarks = [], isLoading, mutate } = useSWR<Bookmark[]>(
+    status === 'authenticated' ? '/api/bookmarks' : null,
+    async (url) => {
+      const res = await fetch(url);
+      if (!res.ok) throw new Error('Failed to fetch bookmarks');
+      return res.json();
+    },
+    {
+      revalidateOnFocus: false,
+      revalidateOnReconnect: false,
+      dedupingInterval: 60000 // Dedupe requests within 1 minute
+    }
+  );
+
   const [randomBookmark, setRandomBookmark] = useState<Bookmark | null>(null);
-  const [showDeleteConfirmId, setShowDeleteConfirmId] = useState<string | null>(null); // State for confirmation modal
-  const [isDeleting, setIsDeleting] = useState(false); // State for delete operation
 
   useEffect(() => {
     if (status === 'unauthenticated') {
@@ -36,32 +51,19 @@ export default function Home() {
   }, [status, router]);
 
   useEffect(() => {
-    async function fetchBookmarks() {
-      try {
-        const response = await fetch('/api/bookmarks');
-        const data = await response.json();
-        // Ensure data is an array before setting it
-        const bookmarkArray = Array.isArray(data) ? data : [];
-        setBookmarks(bookmarkArray);
-        // Set a random bookmark for the widget if there are any bookmarks
-        if (bookmarkArray.length > 0) {
-          setRandomBookmark(bookmarkArray[Math.floor(Math.random() * bookmarkArray.length)]);
-        }
-      } catch (error) {
-        console.error('Error fetching bookmarks:', error);
-        setBookmarks([]);
-      } finally {
-        setIsLoading(false);
-      }
+    if (bookmarks.length > 0) {
+      setRandomBookmark(bookmarks[Math.floor(Math.random() * bookmarks.length)]);
     }
-
-    if (session?.user?.id) {
-      fetchBookmarks();
-    }
-  }, [session]);
+  }, [bookmarks]);
 
   const handleFavoriteToggle = async (bookmarkId: string, currentValue: boolean) => {
     try {
+      // Optimistically update the UI
+      const updatedBookmarks = bookmarks.map(b => 
+        b._id === bookmarkId ? { ...b, isFavorite: !currentValue } : b
+      );
+      mutate(updatedBookmarks, false);
+
       const response = await fetch('/api/bookmarks', {
         method: 'PATCH',
         headers: { 'Content-Type': 'application/json' },
@@ -71,13 +73,13 @@ export default function Home() {
         }),
       });
 
-      if (response.ok) {
-        setBookmarks(bookmarks.map(b => 
-          b._id === bookmarkId ? { ...b, isFavorite: !currentValue } : b
-        ));
+      if (!response.ok) {
+        // Revert on error
+        mutate();
       }
     } catch (error) {
       console.error('Error updating bookmark:', error);
+      mutate(); // Revert on error
     }
   };
 
@@ -105,20 +107,18 @@ export default function Home() {
       }
 
       // Update the UI optimistically
-      setBookmarks(bookmarks.filter(b => b._id !== bookmarkIdToDelete));
+      const updatedBookmarks = bookmarks.filter(b => b._id !== bookmarkIdToDelete);
+      mutate(updatedBookmarks, false);
+
       // Update random bookmark if it was the one deleted
       if (randomBookmark?._id === bookmarkIdToDelete) {
-        const remainingBookmarks = bookmarks.filter(b => b._id !== bookmarkIdToDelete);
-        setRandomBookmark(remainingBookmarks.length > 0 ? remainingBookmarks[Math.floor(Math.random() * remainingBookmarks.length)] : null);
+        setRandomBookmark(updatedBookmarks.length > 0 ? updatedBookmarks[Math.floor(Math.random() * updatedBookmarks.length)] : null);
       }
 
     } catch (error) {
       console.error('Error deleting bookmark:', error);
       alert('Failed to delete bookmark');
-      // Optionally refetch bookmarks on error
-      // if (session?.user?.id) {
-      //   fetchBookmarks();
-      // }
+      mutate(); // Revert on error
     } finally {
       setIsDeleting(false);
       setShowDeleteConfirmId(null); // Hide confirmation after operation
@@ -253,8 +253,9 @@ export default function Home() {
                   <Image 
                     src="/file.svg"
                     alt="No bookmarks"
-                    fill
-                    style={{ objectFit: 'contain' }}
+                    width={128}
+                    height={128}
+                    className="w-full h-full object-contain"
                   />
                 </div>
                 <Link
@@ -273,28 +274,85 @@ export default function Home() {
                   >
                     {/* Delete Confirmation Modal */}
                     {showDeleteConfirmId === bookmark._id && (
-                      <div className="absolute inset-0 z-10 flex items-center justify-center bg-black bg-opacity-60 rounded-lg">
-                        <div className="border-4 border-black bg-white p-6 shadow-[8px_8px_0px_0px_rgba(0,0,0,1)] max-w-[90%] rounded-lg">
-                          <h3 className="mb-3 text-lg font-bold">Delete Bookmark?</h3>
-                          <p className="mb-4">Are you sure you want to delete &quot;{bookmark.title}&quot;?</p>
-                          <div className="flex space-x-3">
-                            <button
+                      <motion.div 
+                        initial={{ opacity: 0 }}
+                        animate={{ opacity: 1 }}
+                        exit={{ opacity: 0 }}
+                        transition={{ duration: 0.2 }}
+                        className="absolute inset-0 z-10 flex items-center justify-center bg-black bg-opacity-60 rounded-lg"
+                      >
+                        <motion.div 
+                          initial={{ opacity: 0, scale: 0.8, y: 20 }}
+                          animate={{ 
+                            opacity: 1,
+                            scale: 1,
+                            y: 0,
+                            transition: {
+                              type: "spring",
+                              stiffness: 500,
+                              damping: 30
+                            }
+                          }}
+                          exit={{ 
+                            opacity: 0,
+                            scale: 0.8,
+                            y: -20,
+                            transition: { duration: 0.2 }
+                          }}
+                          className="border-4 border-black bg-white p-6 shadow-[8px_8px_0px_0px_rgba(0,0,0,1)] max-w-[90%] rounded-lg"
+                        >
+                          <motion.h3 
+                            initial={{ opacity: 0, y: -10 }}
+                            animate={{ opacity: 1, y: 0 }}
+                            className="mb-3 text-lg font-bold"
+                          >
+                            Delete Bookmark?
+                          </motion.h3>
+                          <motion.p 
+                            initial={{ opacity: 0 }}
+                            animate={{ opacity: 1 }}
+                            transition={{ delay: 0.1 }}
+                            className="mb-4"
+                          >
+                            Are you sure you want to delete &ldquo;{bookmark.title}&rdquo;?
+                          </motion.p>
+                          <motion.div 
+                            initial={{ opacity: 0, y: 10 }}
+                            animate={{ opacity: 1, y: 0 }}
+                            transition={{ delay: 0.2 }}
+                            className="flex space-x-3"
+                          >
+                            <motion.button
+                              whileHover={{ scale: 1.05 }}
+                              whileTap={{ scale: 0.95 }}
                               onClick={cancelDelete}
-                              className="border-2 border-black bg-gray-200 px-4 py-2 font-medium hover:bg-gray-300 rounded-md"
+                              className="border-2 border-black bg-gray-200 px-4 py-2 font-medium hover:bg-gray-300 rounded-md disabled:opacity-50 disabled:cursor-not-allowed"
                               disabled={isDeleting}
                             >
                               Cancel
-                            </button>
-                            <button
+                            </motion.button>
+                            <motion.button
+                              whileHover={{ scale: 1.05 }}
+                              whileTap={{ scale: 0.95 }}
                               onClick={confirmDelete}
-                              className="border-2 border-black bg-red-500 px-4 py-2 font-medium text-white hover:bg-red-600 rounded-md"
+                              className="border-2 border-black bg-red-500 px-4 py-2 font-medium text-white hover:bg-red-600 rounded-md disabled:opacity-50 disabled:cursor-not-allowed"
                               disabled={isDeleting}
                             >
-                              {isDeleting ? 'Deleting...' : 'Delete'}
-                            </button>
-                          </div>
-                        </div>
-                      </div>
+                              {isDeleting ? (
+                                <motion.span
+                                  initial={{ opacity: 0 }}
+                                  animate={{ opacity: 1 }}
+                                  transition={{ duration: 0.2 }}
+                                >
+                                  Deleting...
+                                </motion.span>
+                              ) : (
+                                'Delete'
+                              )}
+                            </motion.button>
+                          </motion.div>
+                        </motion.div>
+                      </motion.div>
                     )}
                     {/* Card Content */}
                     <div className="mb-4 flex items-center justify-between">

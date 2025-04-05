@@ -1,10 +1,11 @@
 'use client';
 
 import { useEffect, useState } from 'react';
-import { useRouter, useParams } from 'next/navigation';
+import { useParams, useRouter } from 'next/navigation';
 import { useAuth } from '@/hooks/useAuth';
 import Link from 'next/link';
 import BookmarkCard from '@/components/BookmarkCard';
+import useSWR from 'swr';
 
 interface Bookmark {
   _id: string;
@@ -17,12 +18,10 @@ interface Bookmark {
 }
 
 export default function TagPage() {
-  const { session, status } = useAuth();
   const router = useRouter();
+  const { status } = useAuth();
   const params = useParams();
   const tag = params?.tag as string;
-  const [bookmarks, setBookmarks] = useState<Bookmark[]>([]);
-  const [isLoading, setIsLoading] = useState(true);
   const [sortBy, setSortBy] = useState<'date' | 'title'>('date');
 
   useEffect(() => {
@@ -31,36 +30,32 @@ export default function TagPage() {
     }
   }, [status, router]);
 
-  useEffect(() => {
-    async function fetchBookmarks() {
-      try {
-        const response = await fetch('/api/bookmarks');
-        const data = await response.json();
-        setBookmarks(data.filter((b: Bookmark) => b.tags?.includes(tag)));
-      } catch (error) {
-        console.error('Error fetching bookmarks:', error);
-      } finally {
-        setIsLoading(false);
-      }
+  const { data: allBookmarks = [], isLoading, mutate } = useSWR<Bookmark[]>(
+    status === 'authenticated' ? '/api/bookmarks' : null,
+    async (url) => {
+      const res = await fetch(url);
+      if (!res.ok) throw new Error('Failed to fetch bookmarks');
+      return res.json();
+    },
+    {
+      revalidateOnFocus: false,
+      revalidateOnReconnect: false,
+      dedupingInterval: 60000
     }
+  );
 
-    if (session?.user?.id) {
-      fetchBookmarks();
-    }
-  }, [session, tag]);
+  // Filter bookmarks with the current tag
+  const bookmarks = allBookmarks.filter(b => b.tags?.includes(tag));
 
   const handleDelete = async (bookmarkId: string) => {
     try {
-      // Update the UI optimistically
-      setBookmarks(bookmarks.filter(b => b._id !== bookmarkId));
+      // Optimistically update the UI
+      const updatedBookmarks = allBookmarks.filter(b => b._id !== bookmarkId);
+      mutate(updatedBookmarks, false);
     } catch (error) {
       console.error('Error deleting bookmark:', error);
-      // If there's an error, we could fetch the bookmarks again
-      if (session?.user?.id) {
-        const response = await fetch('/api/bookmarks');
-        const data = await response.json();
-        setBookmarks(data.filter((b: Bookmark) => b.tags?.includes(tag)));
-      }
+      // Revert on error
+      mutate();
     }
   };
 
