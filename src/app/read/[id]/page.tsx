@@ -21,7 +21,6 @@ export default function ReaderPage() {
   const [selectedColor, setSelectedColor] = useState('#ffeb3b');
   const [isReapplyingHighlights, setIsReapplyingHighlights] = useState(false);
   const [selectionMode, setSelectionMode] = useState<'none' | 'default'>('none');
-  const [selectedWord, setSelectedWord] = useState<string | null>(null);
   const [toolbarPosition, setToolbarPosition] = useState({ x: 0, y: 0 });
   const [isToolbarVisible, setIsToolbarVisible] = useState(false);
 
@@ -201,111 +200,23 @@ export default function ReaderPage() {
   const handleSelection = useCallback(async () => {
     try {
       const selection = window.getSelection();
-      if (!selection || selection.isCollapsed || !selectedColor) return;
+      if (!selection || selection.isCollapsed || !selectedColor || selectionMode !== 'default') return;
 
-      // Get the range before we do anything that might affect the selection
-      const range = selection.getRangeAt(0).cloneRange();
-      const articleContent = document.querySelector('.article-content');
-      if (!articleContent || !articleContent.contains(range.commonAncestorContainer)) return;
-
-      // Store the text before we lose the selection
-      const selectedText = selection.toString().trim();
-      if (!selectedText) {
-        throw new Error('Empty selection');
-      }
-
-      // Calculate offsets relative to article content
-      const preSelectionRange = document.createRange();
-      try {
-        preSelectionRange.selectNodeContents(articleContent);
-        preSelectionRange.setEnd(range.startContainer, range.startOffset);
-        const startOffset = preSelectionRange.toString().length;
-        const endOffset = startOffset + selectedText.length;
-
-        // Validate offsets
-        if (startOffset === endOffset || startOffset < 0 || endOffset < 0) {
-          throw new Error('Invalid selection range');
-        }
-
-        // Create highlight span for visual feedback first
-        const span = document.createElement('span');
-        span.className = 'highlight';
-        span.style.backgroundColor = selectedColor;
-        span.style.borderRadius = '2px';
-        span.style.padding = '0 2px';
-        span.style.margin = '0 -2px';
-        span.style.cursor = 'pointer';
-        span.dataset.startOffset = startOffset.toString();
-        span.dataset.endOffset = endOffset.toString();
-        span.title = 'Click to remove highlight';
-
-        // Create the highlight object
-        const newHighlight = {
-          text: selectedText,
-          startOffset: Number(startOffset),
-          endOffset: Number(endOffset),
-          color: selectedColor,
-          createdAt: new Date()
-        };
-
-        // Clear the selection before modifying the DOM
-        selection.removeAllRanges();
-
-        try {
-          range.surroundContents(span);
-        } catch (surroundError) {
-          console.error('Error surrounding contents:', surroundError);
-          const fragment = range.extractContents();
-          span.appendChild(fragment);
-          range.insertNode(span);
-        }
-
-        // Save highlight to database
-        const response = await fetch('/api/bookmarks', {
-          method: 'PATCH',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({
-            id,
-            highlightOperation: 'add',
-            highlight: newHighlight
-          }),
-        });
-
-        if (!response.ok) {
-          const errorData = await response.json().catch(() => ({}));
-          console.error('Server response:', response.status, errorData);
-          
-          // Remove the highlight span since save failed
-          if (span.parentNode) {
-            span.outerHTML = span.innerHTML;
-          }
-          throw new Error(errorData.message || 'Failed to save highlight');
-        }
-
-        // Update local state
-        setHighlights(prev => [...prev, newHighlight]);
-
-      } finally {
-        // Clean up
-        preSelectionRange.detach();
-        range.detach();
-      }
+      // Get selection coordinates
+      const range = selection.getRangeAt(0);
+      const rect = range.getBoundingClientRect();
+      
+      // Show toolbar at selection
+      setToolbarPosition({
+        x: rect.left + (rect.width / 2),
+        y: rect.top - 40
+      });
+      setIsToolbarVisible(true);
 
     } catch (error) {
       console.error('Error in handleSelection:', error);
-      // Clean up any partial highlights
-      const articleContent = document.querySelector('.article-content');
-      if (articleContent) {
-        const partialHighlights = articleContent.querySelectorAll('.highlight:not([data-highlight-id])');
-        partialHighlights.forEach(el => {
-          if (el.parentNode) {
-            el.outerHTML = el.innerHTML;
-          }
-        });
-      }
-      alert(error instanceof Error ? error.message : 'Failed to save highlight');
     }
-  }, [selectedColor, id]);
+  }, [selectedColor, selectionMode]);
 
   // Function to reapply highlights
   const reapplyHighlights = useCallback(() => {
@@ -575,101 +486,125 @@ export default function ReaderPage() {
     if (!articleContent) return;
 
     const handleMouseUp = () => {
-      handleSelection();
+      if (selectionMode === 'default') {
+        handleSelection();
+      }
     };
 
     articleContent.addEventListener('mouseup', handleMouseUp as EventListener);
     return () => {
       articleContent.removeEventListener('mouseup', handleMouseUp as EventListener);
     };
-  }, [handleSelection]);
+  }, [handleSelection, selectionMode]);
 
-  // Helper function to get the coordinates and text content of a touch point
-  const getTouchPointInfo = useCallback((e: TouchEvent) => {
-    const touch = e.touches[0];
-    const { clientX, clientY } = touch;
-    const element = document.elementFromPoint(clientX, clientY);
-    
-    if (element && element.textContent) {
-      // Create a range for the element's contents
-      const range = document.createRange();
-      range.selectNodeContents(element);
-      
-      // Select the word at touch point
-      const text = element.textContent;
-      const words = text.split(/\s+/);
-      let currentPosition = 0;
-      
-      for (const word of words) {
-        const wordEnd = currentPosition + word.length;
-        if (currentPosition <= clientX && clientX <= wordEnd) {
-          range.setStart(element.firstChild!, currentPosition);
-          range.setEnd(element.firstChild!, wordEnd);
-          return {
-            x: clientX,
-            y: clientY,
-            text: word,
-            range
-          };
+  // Handle actual highlight creation
+  const createHighlight = useCallback(async () => {
+    try {
+      const selection = window.getSelection();
+      if (!selection || selection.isCollapsed || !selectedColor) return;
+
+      const range = selection.getRangeAt(0).cloneRange();
+      const articleContent = document.querySelector('.article-content');
+      if (!articleContent || !articleContent.contains(range.commonAncestorContainer)) return;
+
+      const selectedText = selection.toString().trim();
+      if (!selectedText) {
+        throw new Error('Empty selection');
+      }
+
+      // Calculate offsets relative to article content
+      const preSelectionRange = document.createRange();
+      try {
+        preSelectionRange.selectNodeContents(articleContent);
+        preSelectionRange.setEnd(range.startContainer, range.startOffset);
+        const startOffset = preSelectionRange.toString().length;
+        const endOffset = startOffset + selectedText.length;
+
+        // Validate offsets
+        if (startOffset === endOffset || startOffset < 0 || endOffset < 0) {
+          throw new Error('Invalid selection range');
         }
-        currentPosition += word.length + 1;
+
+        // Create highlight span for visual feedback first
+        const span = document.createElement('span');
+        span.className = 'highlight';
+        span.style.backgroundColor = selectedColor;
+        span.style.borderRadius = '2px';
+        span.style.padding = '0 2px';
+        span.style.margin = '0 -2px';
+        span.style.cursor = 'pointer';
+        span.dataset.startOffset = startOffset.toString();
+        span.dataset.endOffset = endOffset.toString();
+        span.title = 'Click to remove highlight';
+
+        // Create the highlight object
+        const newHighlight = {
+          text: selectedText,
+          startOffset: Number(startOffset),
+          endOffset: Number(endOffset),
+          color: selectedColor,
+          createdAt: new Date()
+        };
+
+        // Clear the selection before modifying the DOM
+        selection.removeAllRanges();
+
+        try {
+          range.surroundContents(span);
+        } catch (surroundError) {
+          console.error('Error surrounding contents:', surroundError);
+          const fragment = range.extractContents();
+          span.appendChild(fragment);
+          range.insertNode(span);
+        }
+
+        // Save highlight to database
+        const response = await fetch('/api/bookmarks', {
+          method: 'PATCH',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            id,
+            highlightOperation: 'add',
+            highlight: newHighlight
+          }),
+        });
+
+        if (!response.ok) {
+          const errorData = await response.json().catch(() => ({}));
+          console.error('Server response:', response.status, errorData);
+          
+          // Remove the highlight span since save failed
+          if (span.parentNode) {
+            span.outerHTML = span.innerHTML;
+          }
+          throw new Error(errorData.message || 'Failed to save highlight');
+        }
+
+        // Update local state
+        setHighlights(prev => [...prev, newHighlight]);
+        setIsToolbarVisible(false);
+
+      } finally {
+        // Clean up
+        preSelectionRange.detach();
+        range.detach();
       }
-    }
-    return null;
-  }, []);
 
-  // Handle text selection via Selection Toolbar
-  const handleToolbarSelection = useCallback((e: TouchEvent) => {
-    const touchInfo = getTouchPointInfo(e);
-    if (!touchInfo || !touchInfo.text) return;
-
-    setSelectedWord(touchInfo.text);
-    setToolbarPosition({
-      x: touchInfo.x,
-      y: touchInfo.y - 60
-    });
-    setIsToolbarVisible(true);
-  }, [getTouchPointInfo]);
-
-  // Extend selection in toolbar mode
-  const extendSelection = useCallback((direction: 'left' | 'right') => {
-    const selection = window.getSelection();
-    if (!selection || !selection.rangeCount) return;
-
-    const range = selection.getRangeAt(0);
-    const node = direction === 'left' ? range.startContainer : range.endContainer;
-    
-    if (node.nodeType === Node.TEXT_NODE) {
-      const newRange = document.createRange();
-      if (direction === 'left') {
-        newRange.setStart(node, Math.max(0, range.startOffset - 1));
-        newRange.setEnd(range.endContainer, range.endOffset);
-      } else {
-        newRange.setStart(range.startContainer, range.startOffset);
-        newRange.setEnd(node, Math.min((node.textContent || '').length, range.endOffset + 1));
+    } catch (error) {
+      console.error('Error in createHighlight:', error);
+      // Clean up any partial highlights
+      const articleContent = document.querySelector('.article-content');
+      if (articleContent) {
+        const partialHighlights = articleContent.querySelectorAll('.highlight:not([data-highlight-id])');
+        partialHighlights.forEach(el => {
+          if (el.parentNode) {
+            el.outerHTML = el.innerHTML;
+          }
+        });
       }
-      
-      selection.removeAllRanges();
-      selection.addRange(newRange);
+      alert(error instanceof Error ? error.message : 'Failed to save highlight');
     }
-  }, []);
-
-  // Update the event handlers to use proper TypeScript types
-  useEffect(() => {
-    const articleContent = document.querySelector('.article-content');
-    if (!articleContent) return;
-
-    const handleTouchStart = (e: Event) => {
-      const touchEvent = e as TouchEvent;
-      handleToolbarSelection(touchEvent);
-    };
-
-    articleContent.addEventListener('touchstart', handleTouchStart as EventListener);
-
-    return () => {
-      articleContent.removeEventListener('touchstart', handleTouchStart as EventListener);
-    };
-  }, [handleToolbarSelection]);
+  }, [selectedColor, id]);
 
   if (isLoading) {
     return (
@@ -999,7 +934,7 @@ export default function ReaderPage() {
         </div>
 
         {/* Selection Toolbar */}
-        {isToolbarVisible && selectedWord && (
+        {isToolbarVisible && selectionMode === 'default' && (
           <div 
             className="text-selection-toolbar visible"
             style={{
@@ -1007,12 +942,7 @@ export default function ReaderPage() {
               top: `${toolbarPosition.y}px`
             }}
           >
-            <button onClick={() => extendSelection('left')}>←</button>
-            <button onClick={() => extendSelection('right')}>→</button>
-            <button onClick={() => {
-              handleSelection();
-              setIsToolbarVisible(false);
-            }}>
+            <button onClick={createHighlight}>
               Highlight
             </button>
           </div>
