@@ -163,3 +163,80 @@ body {
   transform: translate(-2px, -2px);
   box-shadow: 8px 8px 0px 0px rgba(0,0,0,1);
 }
+
+/* Highlight styles with improved persistence */
+.highlight {
+  background-color: var(--highlight-color, #ffeb3b);
+  border-radius: 2px;
+  padding: 0 2px;
+  margin: 0 -2px;
+  cursor: pointer;
+  position: relative;
+  transition: background-color 0.2s ease;
+  box-decoration-break: clone;
+  -webkit-box-decoration-break: clone;
+  display: inline;
+  line-height: inherit;
+  white-space: pre-wrap;
+}
+
+.highlight:hover {
+  filter: brightness(0.95);
+}
+
+/* Flash animation for highlights with smoother transitions */
+@keyframes highlight-flash {
+  0%, 100% {
+    transform: scale(1);
+    filter: brightness(1);
+  }
+  50% {
+    transform: scale(1.03);
+    filter: brightness(1.2);
+  }
+}
+
+.highlight-flash {
+  animation: highlight-flash 0.8s cubic-bezier(0.4, 0, 0.2, 1);
+}
+
+/* Ensure highlights maintain their style during scrolling */
+.article-content {
+  contain: style layout;
+  overflow-anchor: none;
+}
+
+/* Mobile highlight controls scrollbar styling */
+.highlight-controls {
+  scrollbar-width: thin;
+  scrollbar-color: #000000 #ffffff;
+}
+
+.highlight-controls::-webkit-scrollbar {
+  height: 6px;
+}
+
+.highlight-controls::-webkit-scrollbar-track {
+  background: #ffffff;
+  border: 1px solid #000000;
+}
+
+.highlight-controls::-webkit-scrollbar-thumb {
+  background-color: #000000;
+  border: 1px solid #000000;
+}
+
+/* Smooth scroll behavior */
+html {
+  scroll-behavior: smooth;
+}
+
+/* Touch highlight color */
+* {
+  -webkit-tap-highlight-color: transparent;
+}
+
+/* Prevent text selection while scrolling on mobile */
+.highlight-controls * {
+  user-select: none;
+}

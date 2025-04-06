@@ -255,6 +255,7 @@ export default function Home() {
                     alt="No bookmarks"
                     width={128}
                     height={128}
+                    priority={true}
                     className="w-full h-full object-contain"
                   />
                 </div>

@@ -1,34 +1,50 @@
 import mongoose from 'mongoose';
 
+export interface IHighlight {
+  text: string;
+  startOffset: number;
+  endOffset: number;
+  color: string;
+  createdAt: Date;
+}
+
 export interface IBookmark {
   _id: string;
   url: string;
   title: string;
-  content?: string;
   category: string;
-  color?: string;
-  readingTime?: number;
-  progress?: number;
+  tags: string[];
+  content?: string;
   isFavorite: boolean;
+  progress: number;
+  color?: string;
   userId: string;
-  tags?: string[];
   createdAt: Date;
   updatedAt: Date;
+  highlights?: IHighlight[];
 }
 
-const bookmarkSchema = new mongoose.Schema({
+const highlightSchema = new mongoose.Schema<IHighlight>({
+  text: { type: String, required: true },
+  startOffset: { type: Number, required: true },
+  endOffset: { type: Number, required: true },
+  color: { type: String, default: '#ffeb3b' }, // Default yellow color
+  createdAt: { type: Date, default: Date.now }
+});
+
+const bookmarkSchema = new mongoose.Schema<IBookmark>({
   url: { type: String, required: true },
   title: { type: String, required: true },
-  content: { type: String },
   category: { type: String, required: true },
-  color: { type: String, default: 'yellow-100' },
-  readingTime: { type: Number, default: 0 },
-  progress: { type: Number, default: 0 },
-  isFavorite: { type: Boolean, default: false },
-  userId: { type: mongoose.Schema.Types.ObjectId, ref: 'User', required: true },
   tags: [{ type: String }],
+  content: String,
+  isFavorite: { type: Boolean, default: false },
+  progress: { type: Number, default: 0 },
+  color: String,
+  userId: { type: String, required: true },
+  highlights: [highlightSchema],
   createdAt: { type: Date, default: Date.now },
-  updatedAt: { type: Date, default: Date.now },
+  updatedAt: { type: Date, default: Date.now }
 });
 
 bookmarkSchema.pre('save', function(next) {
@@ -36,5 +52,5 @@ bookmarkSchema.pre('save', function(next) {
   next();
 });
 
-export const Bookmark = mongoose.models.Bookmark || mongoose.model('Bookmark', bookmarkSchema);
+export const Bookmark = mongoose.models.Bookmark || mongoose.model<IBookmark>('Bookmark', bookmarkSchema);
 export type BookmarkDocument = mongoose.Document & IBookmark;

@@ -327,6 +327,55 @@ export async function PATCH(req: Request) {
 
     await getConnection();
 
+    // Handle highlight operations
+    if ('highlightOperation' in updateData) {
+      const bookmark = await Bookmark.findOne({ _id: id, userId: session.user.id });
+      if (!bookmark) {
+        return NextResponse.json({ message: 'Bookmark not found' }, { status: 404 });
+      }
+
+      switch (updateData.highlightOperation) {
+        case 'add':
+          const { text, startOffset, endOffset, color } = updateData.highlight;
+          bookmark.highlights = [...(bookmark.highlights || []), {
+            text,
+            startOffset,
+            endOffset,
+            color: color || '#ffeb3b',
+            createdAt: new Date()
+          }];
+          break;
+
+        case 'remove':
+          const { startOffset: start, endOffset: end } = updateData.highlight;
+          bookmark.highlights = bookmark.highlights?.filter(
+            (h: { startOffset: number; endOffset: number }) => 
+              h.startOffset !== start || h.endOffset !== end
+          ) || [];
+          break;
+
+        case 'update':
+          const { startOffset: updateStart, endOffset: updateEnd, color: newColor } = updateData.highlight;
+          bookmark.highlights = bookmark.highlights?.map(
+            (h: { startOffset: number; endOffset: number; color?: string }) => 
+              h.startOffset === updateStart && h.endOffset === updateEnd
+                ? { ...h, color: newColor }
+                : h
+          ) || [];
+          break;
+
+        default:
+          return NextResponse.json(
+            { message: 'Invalid highlight operation' },
+            { status: 400 }
+          );
+      }
+
+      await bookmark.save();
+      return NextResponse.json(bookmark);
+    }
+
+    // Handle other update operations
     const bookmark = await Bookmark.findOneAndUpdate(
       { _id: id, userId: session.user.id },
       { ...updateData, updatedAt: new Date() },
