@@ -783,7 +783,7 @@ export default function ReaderPage() {
             initial={{ opacity: 0, y: 20 }}
             animate={{ opacity: 1, y: 0 }}
             transition={{ delay: 0.2 }}
-            className="flex-grow w-full px-4 sm:px-4 pt-44 sm:pt-48 pb-20 lg:pr-[320px]"
+            className="flex-grow w-full px-4 sm:px-4 pt-52 sm:pt-56 pb-20 lg:pr-[320px]"
           >
             <motion.article 
               initial={{ scale: 0.95 }}
@@ -1158,12 +1158,33 @@ export default function ReaderPage() {
             if (!articleContent) return;
 
             let touchStartTime;
+            let selectionTimer;
             let lastTapTime = 0;
             const doubleTapDelay = 300; // ms between taps to consider it a double tap
+            const autoHighlightDelay = 3000; // 3 seconds before auto-highlighting
 
             articleContent.addEventListener('touchstart', function(e) {
               touchStartTime = Date.now();
             }, { passive: true });
+
+            articleContent.addEventListener('selectionchange', function() {
+              // Clear any existing timer
+              if (selectionTimer) clearTimeout(selectionTimer);
+              
+              const selection = window.getSelection();
+              if (selection && !selection.isCollapsed) {
+                // Start a new timer for auto-highlighting
+                selectionTimer = setTimeout(() => {
+                  // Create and dispatch a mouseup event to trigger highlighting
+                  const mouseEvent = new MouseEvent('mouseup', {
+                    bubbles: true,
+                    cancelable: true,
+                    view: window
+                  });
+                  articleContent.dispatchEvent(mouseEvent);
+                }, autoHighlightDelay);
+              }
+            });
 
             articleContent.addEventListener('touchend', function(e) {
               const touchDuration = Date.now() - touchStartTime;
@@ -1171,20 +1192,22 @@ export default function ReaderPage() {
               
               // Check if this is a double tap
               if (currentTime - lastTapTime < doubleTapDelay) {
-                // Double tap detected - let the default behavior handle text selection
-                return;
+                if (selectionTimer) clearTimeout(selectionTimer);
+                return; // Let default behavior handle text selection
               }
               
               lastTapTime = currentTime;
 
-              // For long press (over 500ms), trigger our custom highlighting
+              // For immediate long press (over 500ms), trigger highlighting
               if (touchDuration > 500) {
                 const selection = window.getSelection();
                 if (selection && !selection.isCollapsed) {
+                  if (selectionTimer) clearTimeout(selectionTimer);
+                  
                   // Prevent default selection behavior
                   e.preventDefault();
                   
-                  // Dispatch a mouseup event to trigger the highlighting
+                  // Dispatch mouseup event to trigger highlighting
                   const mouseEvent = new MouseEvent('mouseup', {
                     bubbles: true,
                     cancelable: true,
@@ -1195,9 +1218,14 @@ export default function ReaderPage() {
               }
             });
 
+            // Clean up selection timer when selection is cleared
+            articleContent.addEventListener('touchcancel', function() {
+              if (selectionTimer) clearTimeout(selectionTimer);
+            });
+
             // Allow native text selection on double tap
             articleContent.addEventListener('dblclick', function(e) {
-              // Let the default behavior handle the selection
+              if (selectionTimer) clearTimeout(selectionTimer);
             });
 
             // Prevent the context menu from appearing on long press
