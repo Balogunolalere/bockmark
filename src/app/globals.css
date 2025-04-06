@@ -263,3 +263,108 @@ html {
   -ms-user-select: text !important;
   cursor: text;
 }
+
+/* Mobile text selection styles */
+.highlight-mode-active {
+  position: relative;
+  cursor: crosshair !important;
+}
+
+.text-selection-toolbar {
+  position: fixed;
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  background: white;
+  border: 4px solid black;
+  padding: 0.5rem;
+  border-radius: 8px;
+  box-shadow: 4px 4px 0 rgba(0, 0, 0, 1);
+  z-index: 1000;
+  opacity: 0;
+  transform: translateY(10px);
+  transition: opacity 0.2s, transform 0.2s;
+}
+
+.text-selection-toolbar.visible {
+  opacity: 1;
+  transform: translateY(0);
+}
+
+.text-selection-toolbar button {
+  padding: 0.25rem 0.5rem;
+  border: 2px solid black;
+  background: white;
+  font-weight: bold;
+  font-size: 14px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.magnifier {
+  position: fixed;
+  width: 120px;
+  height: 60px;
+  border-radius: 60px 60px 0 0;
+  border: 4px solid black;
+  overflow: hidden;
+  z-index: 1000;
+  background: white;
+  pointer-events: none;
+  display: none;
+}
+
+.magnifier.visible {
+  display: block;
+}
+
+.magnifier-content {
+  transform: scale(1.5);
+  transform-origin: center center;
+  width: 100%;
+  height: 100%;
+}
+
+.selection-handle {
+  position: absolute;
+  width: 24px;
+  height: 24px;
+  background: white;
+  border: 3px solid black;
+  border-radius: 50%;
+  transform: translate(-50%, -50%);
+  z-index: 1000;
+  touch-action: none;
+}
+
+.selection-handle::after {
+  content: '';
+  position: absolute;
+  left: 50%;
+  top: 100%;
+  width: 2px;
+  height: 16px;
+  background: black;
+  transform: translateX(-50%);
+}
+
+.range-selection-indicator {
+  position: absolute;
+  width: 24px;
+  height: 24px;
+  border: 4px solid black;
+  border-radius: 50%;
+  background: cyan;
+  transform: translate(-50%, -50%);
+  z-index: 1000;
+  pointer-events: none;
+}
+
+.range-selection-indicator.start {
+  background: #ffeb3b;
+}
+
+.range-selection-indicator.end {
+  background: #a5d6a7;
+}
