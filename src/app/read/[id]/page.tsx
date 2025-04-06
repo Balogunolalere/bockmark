@@ -783,7 +783,7 @@ export default function ReaderPage() {
             initial={{ opacity: 0, y: 20 }}
             animate={{ opacity: 1, y: 0 }}
             transition={{ delay: 0.2 }}
-            className="flex-grow w-full px-4 sm:px-4 pt-36 pb-20 lg:pr-[320px]"
+            className="flex-grow w-full px-4 sm:px-4 pt-44 sm:pt-48 pb-20 lg:pr-[320px]"
           >
             <motion.article 
               initial={{ scale: 0.95 }}
@@ -1157,8 +1157,9 @@ export default function ReaderPage() {
             const articleContent = document.querySelector('.article-content');
             if (!articleContent) return;
 
-            let touchTimeout;
             let touchStartTime;
+            let lastTapTime = 0;
+            const doubleTapDelay = 300; // ms between taps to consider it a double tap
 
             articleContent.addEventListener('touchstart', function(e) {
               touchStartTime = Date.now();
@@ -1166,11 +1167,23 @@ export default function ReaderPage() {
 
             articleContent.addEventListener('touchend', function(e) {
               const touchDuration = Date.now() - touchStartTime;
+              const currentTime = Date.now();
               
-              // Only trigger selection after a longer press (500ms)
+              // Check if this is a double tap
+              if (currentTime - lastTapTime < doubleTapDelay) {
+                // Double tap detected - let the default behavior handle text selection
+                return;
+              }
+              
+              lastTapTime = currentTime;
+
+              // For long press (over 500ms), trigger our custom highlighting
               if (touchDuration > 500) {
                 const selection = window.getSelection();
                 if (selection && !selection.isCollapsed) {
+                  // Prevent default selection behavior
+                  e.preventDefault();
+                  
                   // Dispatch a mouseup event to trigger the highlighting
                   const mouseEvent = new MouseEvent('mouseup', {
                     bubbles: true,
@@ -1180,7 +1193,17 @@ export default function ReaderPage() {
                   e.target.dispatchEvent(mouseEvent);
                 }
               }
-            }, { passive: true });
+            });
+
+            // Allow native text selection on double tap
+            articleContent.addEventListener('dblclick', function(e) {
+              // Let the default behavior handle the selection
+            });
+
+            // Prevent the context menu from appearing on long press
+            articleContent.addEventListener('contextmenu', function(e) {
+              e.preventDefault();
+            });
           });
         `}} />
       </div>
