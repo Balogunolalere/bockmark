@@ -20,8 +20,7 @@ export default function ReaderPage() {
   const [highlights, setHighlights] = useState<IHighlight[]>([]);
   const [selectedColor, setSelectedColor] = useState('#ffeb3b');
   const [isReapplyingHighlights, setIsReapplyingHighlights] = useState(false);
-  const [selectionMode, setSelectionMode] = useState<'default' | 'range' | 'magnifier'>('default');
-  const [rangeStart, setRangeStart] = useState<number | null>(null);
+  const [selectionMode, setSelectionMode] = useState<'none' | 'default'>('none');
   const [selectedWord, setSelectedWord] = useState<string | null>(null);
   const [toolbarPosition, setToolbarPosition] = useState({ x: 0, y: 0 });
   const [isToolbarVisible, setIsToolbarVisible] = useState(false);
@@ -619,72 +618,6 @@ export default function ReaderPage() {
     return null;
   }, []);
 
-  // Handle text selection via Range Selection Mode
-  const handleRangeSelection = useCallback((e: TouchEvent) => {
-    const touchInfo = getTouchPointInfo(e);
-    if (!touchInfo) return;
-
-    const articleContent = document.querySelector('.article-content');
-    if (!articleContent) return;
-
-    if (!rangeStart) {
-      // Set start point
-      setRangeStart(touchInfo.range.startOffset);
-      
-      // Show start indicator
-      const indicator = document.createElement('div');
-      indicator.className = 'range-selection-indicator start';
-      indicator.style.left = `${touchInfo.x}px`;
-      indicator.style.top = `${touchInfo.y}px`;
-      document.body.appendChild(indicator);
-      
-      setTimeout(() => indicator.remove(), 1000);
-    } else {
-      // Create selection range
-      const range = document.createRange();
-      range.setStart(articleContent, rangeStart);
-      range.setEnd(articleContent, touchInfo.range.endOffset);
-      
-      // Show end indicator
-      const indicator = document.createElement('div');
-      indicator.className = 'range-selection-indicator end';
-      indicator.style.left = `${touchInfo.x}px`;
-      indicator.style.top = `${touchInfo.y}px`;
-      document.body.appendChild(indicator);
-      
-      setTimeout(() => {
-        indicator.remove();
-        handleSelection();
-      }, 1000);
-      
-      setRangeStart(null);
-    }
-  }, [rangeStart, handleSelection, getTouchPointInfo]);
-
-  // Handle text selection via Magnifier
-  const handleMagnifierSelection = useCallback((e: TouchEvent) => {
-    const touchInfo = getTouchPointInfo(e);
-    if (!touchInfo) return;
-
-    const magnifier = document.querySelector('.magnifier') as HTMLElement;
-    const content = document.querySelector('.magnifier-content') as HTMLElement;
-    
-    if (magnifier && content) {
-      // Position magnifier above touch point
-      magnifier.style.left = `${touchInfo.x - 60}px`;
-      magnifier.style.top = `${touchInfo.y - 80}px`;
-      
-      // Clone and scale content
-      const range = document.createRange();
-      range.selectNode(e.target as Node);
-      const content = range.cloneContents();
-      const contentDiv = document.createElement('div');
-      contentDiv.appendChild(content);
-      
-      magnifier.classList.add('visible');
-    }
-  }, [getTouchPointInfo]);
-
   // Handle text selection via Selection Toolbar
   const handleToolbarSelection = useCallback((e: TouchEvent) => {
     const touchInfo = getTouchPointInfo(e);
@@ -728,31 +661,15 @@ export default function ReaderPage() {
 
     const handleTouchStart = (e: Event) => {
       const touchEvent = e as TouchEvent;
-      if (selectionMode === 'range') {
-        handleRangeSelection(touchEvent);
-      } else if (selectionMode === 'magnifier') {
-        handleMagnifierSelection(touchEvent);
-      } else {
-        // Default toolbar mode
-        handleToolbarSelection(touchEvent);
-      }
-    };
-
-    const handleTouchMove = (e: Event) => {
-      const touchEvent = e as TouchEvent;
-      if (selectionMode === 'magnifier') {
-        handleMagnifierSelection(touchEvent);
-      }
+      handleToolbarSelection(touchEvent);
     };
 
     articleContent.addEventListener('touchstart', handleTouchStart as EventListener);
-    articleContent.addEventListener('touchmove', handleTouchMove as EventListener);
 
     return () => {
       articleContent.removeEventListener('touchstart', handleTouchStart as EventListener);
-      articleContent.removeEventListener('touchmove', handleTouchMove as EventListener);
     };
-  }, [selectionMode, handleRangeSelection, handleMagnifierSelection, handleToolbarSelection]);
+  }, [handleToolbarSelection]);
 
   if (isLoading) {
     return (
@@ -1060,29 +977,18 @@ export default function ReaderPage() {
           <motion.button
             whileHover={{ scale: 1.05 }}
             whileTap={{ scale: 0.95 }}
-            onClick={() => setSelectionMode('range')}
+            onClick={() => setSelectionMode('none')}
             className={`w-12 h-12 rounded-full border-4 border-black flex items-center justify-center ${
-              selectionMode === 'range' ? 'bg-yellow-200' : 'bg-white'
+              selectionMode === 'none' ? 'bg-yellow-200' : 'bg-white'
             }`}
-            aria-label="Range selection mode"
+            aria-label="Disable all selection modes"
           >
-            <span className="text-xl">📏</span>
+            <span className="text-xl">❌</span>
           </motion.button>
           <motion.button
             whileHover={{ scale: 1.05 }}
             whileTap={{ scale: 0.95 }}
-            onClick={() => setSelectionMode('magnifier')}
-            className={`w-12 h-12 rounded-full border-4 border-black flex items-center justify-center ${
-              selectionMode === 'magnifier' ? 'bg-yellow-200' : 'bg-white'
-            }`}
-            aria-label="Magnifier mode"
-          >
-            <span className="text-xl">🔍</span>
-          </motion.button>
-          <motion.button
-            whileHover={{ scale: 1.05 }}
-            whileTap={{ scale: 0.95 }}
-            onClick={() => setSelectionMode('default')}
+            onClick={() => setSelectionMode(selectionMode === 'default' ? 'none' : 'default')}
             className={`w-12 h-12 rounded-full border-4 border-black flex items-center justify-center ${
               selectionMode === 'default' ? 'bg-yellow-200' : 'bg-white'
             }`}
@@ -1111,11 +1017,6 @@ export default function ReaderPage() {
             </button>
           </div>
         )}
-
-        {/* Magnifier */}
-        <div className="magnifier">
-          <div className="magnifier-content" />
-        </div>
 
         <style jsx global>{`
           /* Base article content styling */
@@ -1343,46 +1244,6 @@ export default function ReaderPage() {
               margin: 0 -4px !important;
               border-radius: 4px !important;
             }
-          }
-
-          /* Range selection indicators */
-          .range-selection-indicator {
-            position: absolute;
-            width: 20px;
-            height: 20px;
-            border-radius: 50%;
-            background-color: rgba(255, 235, 59, 0.8);
-            border: 2px solid black;
-            z-index: 1000;
-            pointer-events: none;
-          }
-          .range-selection-indicator.start {
-            background-color: rgba(255, 235, 59, 0.8);
-          }
-          .range-selection-indicator.end {
-            background-color: rgba(255, 235, 59, 0.8);
-          }
-
-          /* Magnifier styles */
-          .magnifier {
-            position: fixed;
-            width: 120px;
-            height: 120px;
-            border-radius: 50%;
-            border: 2px solid black;
-            background-color: white;
-            box-shadow: 0 0 10px rgba(0, 0, 0, 0.5);
-            overflow: hidden;
-            z-index: 1000;
-            pointer-events: none;
-            display: none;
-          }
-          .magnifier.visible {
-            display: block;
-          }
-          .magnifier-content {
-            transform: scale(2);
-            transform-origin: center;
           }
 
           /* Selection toolbar styles */
