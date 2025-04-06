@@ -20,10 +20,6 @@ export default function ReaderPage() {
   const [highlights, setHighlights] = useState<IHighlight[]>([]);
   const [selectedColor, setSelectedColor] = useState('#ffeb3b');
   const [isReapplyingHighlights, setIsReapplyingHighlights] = useState(false);
-  const [isPinMode, setIsPinMode] = useState(false);
-  const [startPin, setStartPin] = useState<{ x: number; y: number; node: Node; offset: number } | null>(null);
-  const [endPin, setEndPin] = useState<{ x: number; y: number; node: Node; offset: number } | null>(null);
-  const [previewHighlight, setPreviewHighlight] = useState<{ left: number; top: number; width: number; height: number } | null>(null);
 
   // Available highlight colors
   const highlightColors = [
@@ -585,204 +581,6 @@ export default function ReaderPage() {
     };
   }, [handleSelection]);
 
-  // Function to get text node and offset at a point
-  const getTextNodeAtPoint = (x: number, y: number) => {
-    const range = document.caretRangeFromPoint(x, y);
-    if (!range) return null;
-    return {
-      node: range.startContainer,
-      offset: range.startOffset
-    };
-  };
-
-  // Function to create highlight from pins
-  const createHighlightFromPins = useCallback(() => {
-    if (!startPin || !endPin) return;
-
-    const articleContent = document.querySelector('.article-content');
-    if (!articleContent) return;
-
-    // Determine which pin comes first in the document
-    const comparison = startPin.node.compareDocumentPosition(endPin.node);
-    let firstPin, secondPin;
-
-    if (comparison & Node.DOCUMENT_POSITION_FOLLOWING) {
-      firstPin = startPin;
-      secondPin = endPin;
-    } else if (comparison & Node.DOCUMENT_POSITION_PRECEDING) {
-      firstPin = endPin;
-      secondPin = startPin;
-    } else {
-      // Same node
-      firstPin = startPin.offset <= endPin.offset ? startPin : endPin;
-      secondPin = startPin.offset <= endPin.offset ? endPin : startPin;
-    }
-
-    // Create range for the highlight
-    const range = document.createRange();
-    range.setStart(firstPin.node, firstPin.offset);
-    range.setEnd(secondPin.node, secondPin.offset);
-
-    // Get the selected text
-    const selectedText = range.toString().trim();
-    if (!selectedText) return;
-
-    // Calculate offsets
-    const preSelectionRange = document.createRange();
-    preSelectionRange.selectNodeContents(articleContent);
-    preSelectionRange.setEnd(firstPin.node, firstPin.offset);
-    const startOffset = preSelectionRange.toString().length;
-    const endOffset = startOffset + selectedText.length;
-
-    // Create and apply the highlight
-    const span = document.createElement('span');
-    span.className = 'highlight';
-    span.style.backgroundColor = selectedColor;
-    span.dataset.startOffset = startOffset.toString();
-    span.dataset.endOffset = endOffset.toString();
-    
-    try {
-      range.surroundContents(span);
-    } catch (error) {
-      console.error('Error surrounding contents:', error);
-      const fragment = range.extractContents();
-      span.appendChild(fragment);
-      range.insertNode(span);
-    }
-
-    // Save highlight
-    const newHighlight = {
-      text: selectedText,
-      startOffset: startOffset,
-      endOffset: endOffset,
-      color: selectedColor,
-      createdAt: new Date()
-    };
-
-    fetch('/api/bookmarks', {
-      method: 'PATCH',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({
-        id,
-        highlightOperation: 'add',
-        highlight: newHighlight
-      }),
-    }).then(response => {
-      if (response.ok) {
-        setHighlights(prev => [...prev, newHighlight]);
-      } else {
-        // Remove highlight if save failed
-        if (span.parentNode) {
-          span.outerHTML = span.innerHTML;
-        }
-      }
-    }).catch(error => {
-      console.error('Error saving highlight:', error);
-      if (span.parentNode) {
-        span.outerHTML = span.innerHTML;
-      }
-    });
-
-    // Reset pins and preview
-    setStartPin(null);
-    setEndPin(null);
-    setPreviewHighlight(null);
-  }, [startPin, endPin, selectedColor, id]);
-
-  // Update preview highlight
-  useEffect(() => {
-    if (!startPin || !endPin) {
-      setPreviewHighlight(null);
-      return;
-    }
-
-    const articleContent = document.querySelector('.article-content');
-    if (!articleContent) return;
-
-    const range = document.createRange();
-    const comparison = startPin.node.compareDocumentPosition(endPin.node);
-    
-    if (comparison & Node.DOCUMENT_POSITION_FOLLOWING) {
-      range.setStart(startPin.node, startPin.offset);
-      range.setEnd(endPin.node, endPin.offset);
-    } else {
-      range.setStart(endPin.node, endPin.offset);
-      range.setEnd(startPin.node, startPin.offset);
-    }
-
-    const rects = range.getClientRects();
-    if (rects.length > 0) {
-      const containerRect = articleContent.getBoundingClientRect();
-      const previewRects = Array.from(rects).map(rect => ({
-        left: rect.left - containerRect.left,
-        top: rect.top - containerRect.top,
-        width: rect.width,
-        height: rect.height
-      }));
-
-      setPreviewHighlight({
-        left: Math.min(...previewRects.map(r => r.left)),
-        top: Math.min(...previewRects.map(r => r.top)),
-        width: Math.max(...previewRects.map(r => r.left + r.width)) - Math.min(...previewRects.map(r => r.left)),
-        height: Math.max(...previewRects.map(r => r.top + r.height)) - Math.min(...previewRects.map(r => r.top))
-      });
-    }
-  }, [startPin, endPin]);
-
-  // Handle article content clicks in pin mode
-  useEffect(() => {
-    if (!isPinMode) return;
-
-    const articleContent = document.querySelector('.article-content');
-    if (!articleContent) return;
-
-    const handleClick = (e: Event) => {
-      if (!isPinMode) return;
-
-      const mouseEvent = e as MouseEvent;
-      mouseEvent.preventDefault();
-
-      const textInfo = getTextNodeAtPoint(mouseEvent.clientX, mouseEvent.clientY);
-      if (!textInfo) return;
-
-      if (!startPin) {
-        setStartPin({
-          x: mouseEvent.clientX,
-          y: mouseEvent.clientY,
-          ...textInfo
-        });
-      } else if (!endPin) {
-        setEndPin({
-          x: mouseEvent.clientX,
-          y: mouseEvent.clientY,
-          ...textInfo
-        });
-        // Create highlight after setting end pin
-        setTimeout(createHighlightFromPins, 0);
-      }
-    };
-
-    articleContent.addEventListener('click', handleClick as EventListener);
-    return () => {
-      articleContent.removeEventListener('click', handleClick as EventListener);
-    };
-  }, [isPinMode, startPin, endPin, createHighlightFromPins]);
-
-  // Add pin mode class
-  useEffect(() => {
-    const articleContent = document.querySelector('.article-content');
-    if (articleContent) {
-      if (isPinMode) {
-        articleContent.classList.add('pin-mode');
-      } else {
-        articleContent.classList.remove('pin-mode');
-        setStartPin(null);
-        setEndPin(null);
-        setPreviewHighlight(null);
-      }
-    }
-  }, [isPinMode]);
-
   if (isLoading) {
     return (
       <PageTransition>
@@ -882,30 +680,18 @@ export default function ReaderPage() {
 
                 {/* Highlight controls - optimized for mobile and desktop */}
                 <div className="flex flex-1 items-center gap-2 border-4 border-black p-2 bg-white shadow-[4px_4px_0px_0px_rgba(0,0,0,1)] overflow-x-auto highlight-controls">
-                  <div className="flex items-center gap-2">
-                    <button
-                      onClick={() => setIsPinMode(!isPinMode)}
-                      className={`flex items-center justify-center w-8 h-8 rounded-full border-2 transition-colors ${
-                        isPinMode ? 'bg-cyan-400 border-black' : 'bg-white border-gray-300 hover:border-black'
-                      }`}
-                      title={isPinMode ? 'Disable pin mode' : 'Enable pin mode'}
-                    >
-                      📍
-                    </button>
-                    <div className="w-px h-6 bg-black" />
-                    <div className="flex items-center gap-1">
-                      {highlightColors.map((color) => (
-                        <button
-                          key={color}
-                          className={`w-6 h-6 rounded-full border-2 flex-shrink-0 ${
-                            selectedColor === color ? 'border-black' : 'border-transparent'
-                          }`}
-                          style={{ backgroundColor: color }}
-                          onClick={() => setSelectedColor(color)}
-                          aria-label={`Select ${color} highlight color`}
-                        />
-                      ))}
-                    </div>
+                  <div className="flex items-center gap-1">
+                    {highlightColors.map((color) => (
+                      <button
+                        key={color}
+                        className={`w-6 h-6 rounded-full border-2 flex-shrink-0 ${
+                          selectedColor === color ? 'border-black' : 'border-transparent'
+                        }`}
+                        style={{ backgroundColor: color }}
+                        onClick={() => setSelectedColor(color)}
+                        aria-label={`Select ${color} highlight color`}
+                      />
+                    ))}
                   </div>
 
                   <div className="w-px h-6 bg-black mx-2" />
@@ -1095,38 +881,6 @@ export default function ReaderPage() {
             <span className="text-2xl">✨</span>
           </motion.button>
         </div>
-
-        {/* Pin markers */}
-        {startPin && (
-          <div
-            className="pin-marker start"
-            style={{
-              left: startPin.x + 'px',
-              top: startPin.y + 'px'
-            }}
-          />
-        )}
-        {endPin && (
-          <div
-            className="pin-marker end"
-            style={{
-              left: endPin.x + 'px',
-              top: endPin.y + 'px'
-            }}
-          />
-        )}
-        {previewHighlight && (
-          <div
-            className="pin-preview"
-            style={{
-              left: previewHighlight.left + 'px',
-              top: previewHighlight.top + 'px',
-              width: previewHighlight.width + 'px',
-              height: previewHighlight.height + 'px',
-              backgroundColor: selectedColor + '40'
-            }}
-          />
-        )}
 
         <style jsx global>{`
           /* Base article content styling */
@@ -1354,35 +1108,6 @@ export default function ReaderPage() {
               margin: 0 -4px !important;
               border-radius: 4px !important;
             }
-          }
-
-          /* Pin mode styles */
-          .pin-mode {
-            cursor: crosshair !important;
-          }
-
-          .pin-marker {
-            position: absolute;
-            width: 10px;
-            height: 10px;
-            background-color: red;
-            border-radius: 50%;
-            z-index: 1000;
-          }
-
-          .pin-marker.start {
-            background-color: green;
-          }
-
-          .pin-marker.end {
-            background-color: blue;
-          }
-
-          .pin-preview {
-            position: absolute;
-            background-color: rgba(255, 235, 59, 0.4);
-            border: 2px dashed rgba(255, 235, 59, 0.8);
-            z-index: 999;
           }
         `}</style>
 
