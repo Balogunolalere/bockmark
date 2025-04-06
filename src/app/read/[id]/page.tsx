@@ -20,7 +20,7 @@ export default function ReaderPage() {
   const [highlights, setHighlights] = useState<IHighlight[]>([]);
   const [selectedColor, setSelectedColor] = useState('#ffeb3b');
   const [isReapplyingHighlights, setIsReapplyingHighlights] = useState(false);
-  const [selectionMode, setSelectionMode] = useState<'none' | 'default' | 'range' | 'magnifier'>('none');
+  const [selectionMode, setSelectionMode] = useState<'default' | 'range' | 'magnifier'>('default');
   const [rangeStart, setRangeStart] = useState<number | null>(null);
   const [selectedWord, setSelectedWord] = useState<string | null>(null);
   const [toolbarPosition, setToolbarPosition] = useState({ x: 0, y: 0 });
@@ -1060,18 +1060,7 @@ export default function ReaderPage() {
           <motion.button
             whileHover={{ scale: 1.05 }}
             whileTap={{ scale: 0.95 }}
-            onClick={() => setSelectionMode(selectionMode === 'none' ? 'none' : 'none')}
-            className={`w-12 h-12 rounded-full border-4 border-black flex items-center justify-center ${
-              selectionMode === 'none' ? 'bg-yellow-200' : 'bg-white'
-            }`}
-            aria-label="Disable all selection modes"
-          >
-            <span className="text-xl">❌</span>
-          </motion.button>
-          <motion.button
-            whileHover={{ scale: 1.05 }}
-            whileTap={{ scale: 0.95 }}
-            onClick={() => setSelectionMode(selectionMode === 'range' ? 'none' : 'range')}
+            onClick={() => setSelectionMode('range')}
             className={`w-12 h-12 rounded-full border-4 border-black flex items-center justify-center ${
               selectionMode === 'range' ? 'bg-yellow-200' : 'bg-white'
             }`}
@@ -1082,7 +1071,7 @@ export default function ReaderPage() {
           <motion.button
             whileHover={{ scale: 1.05 }}
             whileTap={{ scale: 0.95 }}
-            onClick={() => setSelectionMode(selectionMode === 'magnifier' ? 'none' : 'magnifier')}
+            onClick={() => setSelectionMode('magnifier')}
             className={`w-12 h-12 rounded-full border-4 border-black flex items-center justify-center ${
               selectionMode === 'magnifier' ? 'bg-yellow-200' : 'bg-white'
             }`}
@@ -1093,7 +1082,7 @@ export default function ReaderPage() {
           <motion.button
             whileHover={{ scale: 1.05 }}
             whileTap={{ scale: 0.95 }}
-            onClick={() => setSelectionMode(selectionMode === 'default' ? 'none' : 'default')}
+            onClick={() => setSelectionMode('default')}
             className={`w-12 h-12 rounded-full border-4 border-black flex items-center justify-center ${
               selectionMode === 'default' ? 'bg-yellow-200' : 'bg-white'
             }`}
