@@ -20,7 +20,9 @@ export default function ReaderPage() {
   const [highlights, setHighlights] = useState<IHighlight[]>([]);
   const [selectedColor, setSelectedColor] = useState('#ffeb3b');
   const [isReapplyingHighlights, setIsReapplyingHighlights] = useState(false);
-  const [selectionMode, setSelectionMode] = useState<'none' | 'default'>('none');
+  const [selectionMode, setSelectionMode] = useState<'none' | 'default' | 'range' | 'magnifier'>('none');
+  const [rangeStart, setRangeStart] = useState<number | null>(null);
+  const [selectedWord, setSelectedWord] = useState<string | null>(null);
   const [toolbarPosition, setToolbarPosition] = useState({ x: 0, y: 0 });
   const [isToolbarVisible, setIsToolbarVisible] = useState(false);
 
@@ -200,23 +202,111 @@ export default function ReaderPage() {
   const handleSelection = useCallback(async () => {
     try {
       const selection = window.getSelection();
-      if (!selection || selection.isCollapsed || !selectedColor || selectionMode !== 'default') return;
+      if (!selection || selection.isCollapsed || !selectedColor) return;
 
-      // Get selection coordinates
-      const range = selection.getRangeAt(0);
-      const rect = range.getBoundingClientRect();
-      
-      // Show toolbar at selection
-      setToolbarPosition({
-        x: rect.left + (rect.width / 2),
-        y: rect.top - 40
-      });
-      setIsToolbarVisible(true);
+      // Get the range before we do anything that might affect the selection
+      const range = selection.getRangeAt(0).cloneRange();
+      const articleContent = document.querySelector('.article-content');
+      if (!articleContent || !articleContent.contains(range.commonAncestorContainer)) return;
+
+      // Store the text before we lose the selection
+      const selectedText = selection.toString().trim();
+      if (!selectedText) {
+        throw new Error('Empty selection');
+      }
+
+      // Calculate offsets relative to article content
+      const preSelectionRange = document.createRange();
+      try {
+        preSelectionRange.selectNodeContents(articleContent);
+        preSelectionRange.setEnd(range.startContainer, range.startOffset);
+        const startOffset = preSelectionRange.toString().length;
+        const endOffset = startOffset + selectedText.length;
+
+        // Validate offsets
+        if (startOffset === endOffset || startOffset < 0 || endOffset < 0) {
+          throw new Error('Invalid selection range');
+        }
+
+        // Create highlight span for visual feedback first
+        const span = document.createElement('span');
+        span.className = 'highlight';
+        span.style.backgroundColor = selectedColor;
+        span.style.borderRadius = '2px';
+        span.style.padding = '0 2px';
+        span.style.margin = '0 -2px';
+        span.style.cursor = 'pointer';
+        span.dataset.startOffset = startOffset.toString();
+        span.dataset.endOffset = endOffset.toString();
+        span.title = 'Click to remove highlight';
+
+        // Create the highlight object
+        const newHighlight = {
+          text: selectedText,
+          startOffset: Number(startOffset),
+          endOffset: Number(endOffset),
+          color: selectedColor,
+          createdAt: new Date()
+        };
+
+        // Clear the selection before modifying the DOM
+        selection.removeAllRanges();
+
+        try {
+          range.surroundContents(span);
+        } catch (surroundError) {
+          console.error('Error surrounding contents:', surroundError);
+          const fragment = range.extractContents();
+          span.appendChild(fragment);
+          range.insertNode(span);
+        }
+
+        // Save highlight to database
+        const response = await fetch('/api/bookmarks', {
+          method: 'PATCH',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            id,
+            highlightOperation: 'add',
+            highlight: newHighlight
+          }),
+        });
+
+        if (!response.ok) {
+          const errorData = await response.json().catch(() => ({}));
+          console.error('Server response:', response.status, errorData);
+          
+          // Remove the highlight span since save failed
+          if (span.parentNode) {
+            span.outerHTML = span.innerHTML;
+          }
+          throw new Error(errorData.message || 'Failed to save highlight');
+        }
+
+        // Update local state
+        setHighlights(prev => [...prev, newHighlight]);
+
+      } finally {
+        // Clean up
+        preSelectionRange.detach();
+        range.detach();
+      }
 
     } catch (error) {
       console.error('Error in handleSelection:', error);
+      // Clean up any partial highlights
+      const articleContent = document.querySelector('.article-content');
+      if (articleContent) {
+        const partialHighlights = articleContent.querySelectorAll('.highlight:not([data-highlight-id])');
+        partialHighlights.forEach(el => {
+          if (el.parentNode) {
+            el.outerHTML = el.innerHTML;
+          }
+        });
+      }
+      alert(error instanceof Error ? error.message : 'Failed to save highlight');
     }
-  }, [selectedColor, selectionMode]);
+  }, [selectedColor, id]);
 
   // Function to reapply highlights
   const reapplyHighlights = useCallback(() => {
@@ -486,125 +576,183 @@ export default function ReaderPage() {
     if (!articleContent) return;
 
     const handleMouseUp = () => {
-      if (selectionMode === 'default') {
-        handleSelection();
-      }
+      handleSelection();
     };
 
     articleContent.addEventListener('mouseup', handleMouseUp as EventListener);
     return () => {
       articleContent.removeEventListener('mouseup', handleMouseUp as EventListener);
     };
-  }, [handleSelection, selectionMode]);
+  }, [handleSelection]);
 
-  // Handle actual highlight creation
-  const createHighlight = useCallback(async () => {
-    try {
-      const selection = window.getSelection();
-      if (!selection || selection.isCollapsed || !selectedColor) return;
-
-      const range = selection.getRangeAt(0).cloneRange();
-      const articleContent = document.querySelector('.article-content');
-      if (!articleContent || !articleContent.contains(range.commonAncestorContainer)) return;
-
-      const selectedText = selection.toString().trim();
-      if (!selectedText) {
-        throw new Error('Empty selection');
-      }
-
-      // Calculate offsets relative to article content
-      const preSelectionRange = document.createRange();
-      try {
-        preSelectionRange.selectNodeContents(articleContent);
-        preSelectionRange.setEnd(range.startContainer, range.startOffset);
-        const startOffset = preSelectionRange.toString().length;
-        const endOffset = startOffset + selectedText.length;
-
-        // Validate offsets
-        if (startOffset === endOffset || startOffset < 0 || endOffset < 0) {
-          throw new Error('Invalid selection range');
+  // Helper function to get the coordinates and text content of a touch point
+  const getTouchPointInfo = useCallback((e: TouchEvent) => {
+    const touch = e.touches[0];
+    const { clientX, clientY } = touch;
+    const element = document.elementFromPoint(clientX, clientY);
+    
+    if (element && element.textContent) {
+      // Create a range for the element's contents
+      const range = document.createRange();
+      range.selectNodeContents(element);
+      
+      // Select the word at touch point
+      const text = element.textContent;
+      const words = text.split(/\s+/);
+      let currentPosition = 0;
+      
+      for (const word of words) {
+        const wordEnd = currentPosition + word.length;
+        if (currentPosition <= clientX && clientX <= wordEnd) {
+          range.setStart(element.firstChild!, currentPosition);
+          range.setEnd(element.firstChild!, wordEnd);
+          return {
+            x: clientX,
+            y: clientY,
+            text: word,
+            range
+          };
         }
-
-        // Create highlight span for visual feedback first
-        const span = document.createElement('span');
-        span.className = 'highlight';
-        span.style.backgroundColor = selectedColor;
-        span.style.borderRadius = '2px';
-        span.style.padding = '0 2px';
-        span.style.margin = '0 -2px';
-        span.style.cursor = 'pointer';
-        span.dataset.startOffset = startOffset.toString();
-        span.dataset.endOffset = endOffset.toString();
-        span.title = 'Click to remove highlight';
-
-        // Create the highlight object
-        const newHighlight = {
-          text: selectedText,
-          startOffset: Number(startOffset),
-          endOffset: Number(endOffset),
-          color: selectedColor,
-          createdAt: new Date()
-        };
-
-        // Clear the selection before modifying the DOM
-        selection.removeAllRanges();
-
-        try {
-          range.surroundContents(span);
-        } catch (surroundError) {
-          console.error('Error surrounding contents:', surroundError);
-          const fragment = range.extractContents();
-          span.appendChild(fragment);
-          range.insertNode(span);
-        }
-
-        // Save highlight to database
-        const response = await fetch('/api/bookmarks', {
-          method: 'PATCH',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({
-            id,
-            highlightOperation: 'add',
-            highlight: newHighlight
-          }),
-        });
-
-        if (!response.ok) {
-          const errorData = await response.json().catch(() => ({}));
-          console.error('Server response:', response.status, errorData);
-          
-          // Remove the highlight span since save failed
-          if (span.parentNode) {
-            span.outerHTML = span.innerHTML;
-          }
-          throw new Error(errorData.message || 'Failed to save highlight');
-        }
-
-        // Update local state
-        setHighlights(prev => [...prev, newHighlight]);
-        setIsToolbarVisible(false);
-
-      } finally {
-        // Clean up
-        preSelectionRange.detach();
-        range.detach();
+        currentPosition += word.length + 1;
       }
-
-    } catch (error) {
-      console.error('Error in createHighlight:', error);
-      // Clean up any partial highlights
-      const articleContent = document.querySelector('.article-content');
-      if (articleContent) {
-        const partialHighlights = articleContent.querySelectorAll('.highlight:not([data-highlight-id])');
-        partialHighlights.forEach(el => {
-          if (el.parentNode) {
-            el.outerHTML = el.innerHTML;
-          }
-        });
-      }
-      alert(error instanceof Error ? error.message : 'Failed to save highlight');
     }
-  }, [selectedColor, id]);
+    return null;
+  }, []);
+
+  // Handle text selection via Range Selection Mode
+  const handleRangeSelection = useCallback((e: TouchEvent) => {
+    const touchInfo = getTouchPointInfo(e);
+    if (!touchInfo) return;
+
+    const articleContent = document.querySelector('.article-content');
+    if (!articleContent) return;
+
+    if (!rangeStart) {
+      // Set start point
+      setRangeStart(touchInfo.range.startOffset);
+      
+      // Show start indicator
+      const indicator = document.createElement('div');
+      indicator.className = 'range-selection-indicator start';
+      indicator.style.left = `${touchInfo.x}px`;
+      indicator.style.top = `${touchInfo.y}px`;
+      document.body.appendChild(indicator);
+      
+      setTimeout(() => indicator.remove(), 1000);
+    } else {
+      // Create selection range
+      const range = document.createRange();
+      range.setStart(articleContent, rangeStart);
+      range.setEnd(articleContent, touchInfo.range.endOffset);
+      
+      // Show end indicator
+      const indicator = document.createElement('div');
+      indicator.className = 'range-selection-indicator end';
+      indicator.style.left = `${touchInfo.x}px`;
+      indicator.style.top = `${touchInfo.y}px`;
+      document.body.appendChild(indicator);
+      
+      setTimeout(() => {
+        indicator.remove();
+        handleSelection();
+      }, 1000);
+      
+      setRangeStart(null);
+    }
+  }, [rangeStart, handleSelection, getTouchPointInfo]);
+
+  // Handle text selection via Magnifier
+  const handleMagnifierSelection = useCallback((e: TouchEvent) => {
+    const touchInfo = getTouchPointInfo(e);
+    if (!touchInfo) return;
+
+    const magnifier = document.querySelector('.magnifier') as HTMLElement;
+    const content = document.querySelector('.magnifier-content') as HTMLElement;
+    
+    if (magnifier && content) {
+      // Position magnifier above touch point
+      magnifier.style.left = `${touchInfo.x - 60}px`;
+      magnifier.style.top = `${touchInfo.y - 80}px`;
+      
+      // Clone and scale content
+      const range = document.createRange();
+      range.selectNode(e.target as Node);
+      const content = range.cloneContents();
+      const contentDiv = document.createElement('div');
+      contentDiv.appendChild(content);
+      
+      magnifier.classList.add('visible');
+    }
+  }, [getTouchPointInfo]);
+
+  // Handle text selection via Selection Toolbar
+  const handleToolbarSelection = useCallback((e: TouchEvent) => {
+    const touchInfo = getTouchPointInfo(e);
+    if (!touchInfo || !touchInfo.text) return;
+
+    setSelectedWord(touchInfo.text);
+    setToolbarPosition({
+      x: touchInfo.x,
+      y: touchInfo.y - 60
+    });
+    setIsToolbarVisible(true);
+  }, [getTouchPointInfo]);
+
+  // Extend selection in toolbar mode
+  const extendSelection = useCallback((direction: 'left' | 'right') => {
+    const selection = window.getSelection();
+    if (!selection || !selection.rangeCount) return;
+
+    const range = selection.getRangeAt(0);
+    const node = direction === 'left' ? range.startContainer : range.endContainer;
+    
+    if (node.nodeType === Node.TEXT_NODE) {
+      const newRange = document.createRange();
+      if (direction === 'left') {
+        newRange.setStart(node, Math.max(0, range.startOffset - 1));
+        newRange.setEnd(range.endContainer, range.endOffset);
+      } else {
+        newRange.setStart(range.startContainer, range.startOffset);
+        newRange.setEnd(node, Math.min((node.textContent || '').length, range.endOffset + 1));
+      }
+      
+      selection.removeAllRanges();
+      selection.addRange(newRange);
+    }
+  }, []);
+
+  // Update the event handlers to use proper TypeScript types
+  useEffect(() => {
+    const articleContent = document.querySelector('.article-content');
+    if (!articleContent) return;
+
+    const handleTouchStart = (e: Event) => {
+      const touchEvent = e as TouchEvent;
+      if (selectionMode === 'range') {
+        handleRangeSelection(touchEvent);
+      } else if (selectionMode === 'magnifier') {
+        handleMagnifierSelection(touchEvent);
+      } else {
+        // Default toolbar mode
+        handleToolbarSelection(touchEvent);
+      }
+    };
+
+    const handleTouchMove = (e: Event) => {
+      const touchEvent = e as TouchEvent;
+      if (selectionMode === 'magnifier') {
+        handleMagnifierSelection(touchEvent);
+      }
+    };
+
+    articleContent.addEventListener('touchstart', handleTouchStart as EventListener);
+    articleContent.addEventListener('touchmove', handleTouchMove as EventListener);
+
+    return () => {
+      articleContent.removeEventListener('touchstart', handleTouchStart as EventListener);
+      articleContent.removeEventListener('touchmove', handleTouchMove as EventListener);
+    };
+  }, [selectionMode, handleRangeSelection, handleMagnifierSelection, handleToolbarSelection]);
 
   if (isLoading) {
     return (
@@ -912,13 +1060,35 @@ export default function ReaderPage() {
           <motion.button
             whileHover={{ scale: 1.05 }}
             whileTap={{ scale: 0.95 }}
-            onClick={() => setSelectionMode('none')}
+            onClick={() => setSelectionMode(selectionMode === 'none' ? 'none' : 'none')}
             className={`w-12 h-12 rounded-full border-4 border-black flex items-center justify-center ${
               selectionMode === 'none' ? 'bg-yellow-200' : 'bg-white'
             }`}
             aria-label="Disable all selection modes"
           >
             <span className="text-xl">❌</span>
+          </motion.button>
+          <motion.button
+            whileHover={{ scale: 1.05 }}
+            whileTap={{ scale: 0.95 }}
+            onClick={() => setSelectionMode(selectionMode === 'range' ? 'none' : 'range')}
+            className={`w-12 h-12 rounded-full border-4 border-black flex items-center justify-center ${
+              selectionMode === 'range' ? 'bg-yellow-200' : 'bg-white'
+            }`}
+            aria-label="Range selection mode"
+          >
+            <span className="text-xl">📏</span>
+          </motion.button>
+          <motion.button
+            whileHover={{ scale: 1.05 }}
+            whileTap={{ scale: 0.95 }}
+            onClick={() => setSelectionMode(selectionMode === 'magnifier' ? 'none' : 'magnifier')}
+            className={`w-12 h-12 rounded-full border-4 border-black flex items-center justify-center ${
+              selectionMode === 'magnifier' ? 'bg-yellow-200' : 'bg-white'
+            }`}
+            aria-label="Magnifier mode"
+          >
+            <span className="text-xl">🔍</span>
           </motion.button>
           <motion.button
             whileHover={{ scale: 1.05 }}
@@ -934,7 +1104,7 @@ export default function ReaderPage() {
         </div>
 
         {/* Selection Toolbar */}
-        {isToolbarVisible && selectionMode === 'default' && (
+        {isToolbarVisible && selectedWord && (
           <div 
             className="text-selection-toolbar visible"
             style={{
@@ -942,11 +1112,21 @@ export default function ReaderPage() {
               top: `${toolbarPosition.y}px`
             }}
           >
-            <button onClick={createHighlight}>
+            <button onClick={() => extendSelection('left')}>←</button>
+            <button onClick={() => extendSelection('right')}>→</button>
+            <button onClick={() => {
+              handleSelection();
+              setIsToolbarVisible(false);
+            }}>
               Highlight
             </button>
           </div>
         )}
+
+        {/* Magnifier */}
+        <div className="magnifier">
+          <div className="magnifier-content" />
+        </div>
 
         <style jsx global>{`
           /* Base article content styling */
@@ -1174,6 +1354,46 @@ export default function ReaderPage() {
               margin: 0 -4px !important;
               border-radius: 4px !important;
             }
+          }
+
+          /* Range selection indicators */
+          .range-selection-indicator {
+            position: absolute;
+            width: 20px;
+            height: 20px;
+            border-radius: 50%;
+            background-color: rgba(255, 235, 59, 0.8);
+            border: 2px solid black;
+            z-index: 1000;
+            pointer-events: none;
+          }
+          .range-selection-indicator.start {
+            background-color: rgba(255, 235, 59, 0.8);
+          }
+          .range-selection-indicator.end {
+            background-color: rgba(255, 235, 59, 0.8);
+          }
+
+          /* Magnifier styles */
+          .magnifier {
+            position: fixed;
+            width: 120px;
+            height: 120px;
+            border-radius: 50%;
+            border: 2px solid black;
+            background-color: white;
+            box-shadow: 0 0 10px rgba(0, 0, 0, 0.5);
+            overflow: hidden;
+            z-index: 1000;
+            pointer-events: none;
+            display: none;
+          }
+          .magnifier.visible {
+            display: block;
+          }
+          .magnifier-content {
+            transform: scale(2);
+            transform-origin: center;
           }
 
           /* Selection toolbar styles */
