@@ -193,14 +193,14 @@ export default function ReaderPage() {
     }
   }, [bookmark?.highlights]);
 
-  // Handle text selection for highlighting - made more immediate
+  // Handle text selection for highlighting
   const handleSelection = useCallback(async () => {
     try {
       const selection = window.getSelection();
       if (!selection || selection.isCollapsed || !selectedColor) return;
 
       // Get the range before we do anything that might affect the selection
-      const range = selection.getRangeAt(0).cloneRange(); // Clone the range to work with a copy
+      const range = selection.getRangeAt(0).cloneRange();
       const articleContent = document.querySelector('.article-content');
       if (!articleContent || !articleContent.contains(range.commonAncestorContainer)) return;
 
@@ -223,16 +223,7 @@ export default function ReaderPage() {
           throw new Error('Invalid selection range');
         }
 
-        // Create the highlight object first
-        const newHighlight = {
-          text: selectedText,
-          startOffset: Number(startOffset),
-          endOffset: Number(endOffset),
-          color: selectedColor,
-          createdAt: new Date()
-        };
-
-        // Create highlight span for visual feedback
+        // Create highlight span for visual feedback first
         const span = document.createElement('span');
         span.className = 'highlight';
         span.style.backgroundColor = selectedColor;
@@ -242,60 +233,30 @@ export default function ReaderPage() {
         span.style.cursor = 'pointer';
         span.dataset.startOffset = startOffset.toString();
         span.dataset.endOffset = endOffset.toString();
-        span.title = 'Click to remove highlight'; // Add tooltip
+        span.title = 'Click to remove highlight';
 
-        // Add click handler to remove highlight
-        span.addEventListener('click', async (e) => {
-          e.preventDefault();
-          e.stopPropagation();
-          
-          try {
-            const response = await fetch('/api/bookmarks', {
-              method: 'PATCH',
-              headers: { 'Content-Type': 'application/json' },
-              body: JSON.stringify({
-                id,
-                highlightOperation: 'remove',
-                highlight: { startOffset, endOffset }
-              }),
-            });
-
-            if (!response.ok) {
-              throw new Error('Failed to remove highlight');
-            }
-
-            setHighlights(prev => 
-              prev.filter(h => 
-                h.startOffset !== startOffset || 
-                h.endOffset !== endOffset
-              )
-            );
-
-            // Remove the highlight span
-            if (span.parentNode) {
-              span.outerHTML = span.innerHTML;
-            }
-          } catch (error) {
-            console.error('Error removing highlight:', error);
-            alert('Failed to remove highlight');
-          }
-        });
+        // Create the highlight object
+        const newHighlight = {
+          text: selectedText,
+          startOffset: Number(startOffset),
+          endOffset: Number(endOffset),
+          color: selectedColor,
+          createdAt: new Date()
+        };
 
         // Clear the selection before modifying the DOM
         selection.removeAllRanges();
 
         try {
-          // Try to surround the selection with the highlight span
           range.surroundContents(span);
         } catch (surroundError) {
           console.error('Error surrounding contents:', surroundError);
-          // If surroundContents fails, try a fallback approach
           const fragment = range.extractContents();
           span.appendChild(fragment);
           range.insertNode(span);
         }
 
-        // Save highlight to database after visual feedback
+        // Save highlight to database
         const response = await fetch('/api/bookmarks', {
           method: 'PATCH',
           headers: { 'Content-Type': 'application/json' },
@@ -307,7 +268,6 @@ export default function ReaderPage() {
         });
 
         if (!response.ok) {
-          // Get the error message from the response if available
           const errorData = await response.json().catch(() => ({}));
           console.error('Server response:', response.status, errorData);
           
@@ -318,18 +278,18 @@ export default function ReaderPage() {
           throw new Error(errorData.message || 'Failed to save highlight');
         }
 
-        // Successfully saved, update local state
+        // Update local state
         setHighlights(prev => [...prev, newHighlight]);
 
       } finally {
-        // Clean up the range objects
+        // Clean up
         preSelectionRange.detach();
         range.detach();
       }
 
     } catch (error) {
       console.error('Error in handleSelection:', error);
-      // Attempt to clean up any partial highlight spans
+      // Clean up any partial highlights
       const articleContent = document.querySelector('.article-content');
       if (articleContent) {
         const partialHighlights = articleContent.querySelectorAll('.highlight:not([data-highlight-id])');
@@ -1151,6 +1111,39 @@ export default function ReaderPage() {
           }
         `}</style>
 
+        {/* Add mobile-specific styles */}
+        <style jsx global>{`
+          /* Improve text selection behavior */
+          @media (max-width: 640px) {
+            .article-content {
+              -webkit-user-select: text !important;
+              user-select: text !important;
+              -webkit-touch-callout: default !important;
+              touch-action: manipulation !important;
+            }
+
+            .article-content * {
+              -webkit-user-select: text !important;
+              user-select: text !important;
+              -webkit-touch-callout: default !important;
+            }
+
+            /* Make highlights easier to tap */
+            .highlight {
+              padding: 4px 8px !important;
+              margin: -4px -8px !important;
+              border-radius: 4px !important;
+              min-height: 2em;
+              display: inline-block;
+            }
+
+            /* Prevent text selection from being too sensitive */
+            .article-content {
+              touch-action: pan-x pan-y pinch-zoom !important;
+            }
+          }
+        `}</style>
+
         {/* Add touch event handlers for mobile */}
         <script dangerouslySetInnerHTML={{ __html: `
           document.addEventListener('DOMContentLoaded', function() {
@@ -1158,80 +1151,106 @@ export default function ReaderPage() {
             if (!articleContent) return;
 
             let touchStartTime;
-            let selectionTimer;
+            let touchEndTimer;
             let lastTapTime = 0;
-            const doubleTapDelay = 300; // ms between taps to consider it a double tap
-            const autoHighlightDelay = 3000; // 3 seconds before auto-highlighting
+            const doubleTapDelay = 300;
+            let isSelecting = false;
 
+            // Helper function to get the current highlight color
+            const getCurrentHighlightColor = () => {
+              const activeColorButton = document.querySelector('.highlight-controls button[class*="border-black"]');
+              return activeColorButton ? activeColorButton.style.backgroundColor : '#ffeb3b';
+            };
+
+            // Handle touch start
             articleContent.addEventListener('touchstart', function(e) {
               touchStartTime = Date.now();
-            }, { passive: true });
+              isSelecting = false;
+            }, { passive: false });
 
-            articleContent.addEventListener('selectionchange', function() {
-              // Clear any existing timer
-              if (selectionTimer) clearTimeout(selectionTimer);
-              
+            // Handle selection changes
+            document.addEventListener('selectionchange', function() {
               const selection = window.getSelection();
               if (selection && !selection.isCollapsed) {
-                // Start a new timer for auto-highlighting
-                selectionTimer = setTimeout(() => {
-                  // Create and dispatch a mouseup event to trigger highlighting
+                isSelecting = true;
+                
+                // Clear any existing timer
+                if (touchEndTimer) {
+                  clearTimeout(touchEndTimer);
+                }
+                
+                // Set new timer for auto-highlighting
+                touchEndTimer = setTimeout(() => {
                   const mouseEvent = new MouseEvent('mouseup', {
                     bubbles: true,
                     cancelable: true,
                     view: window
                   });
                   articleContent.dispatchEvent(mouseEvent);
-                }, autoHighlightDelay);
+                }, 1000); // Reduced to 1 second for better responsiveness
               }
             });
 
+            // Handle touch end
             articleContent.addEventListener('touchend', function(e) {
               const touchDuration = Date.now() - touchStartTime;
               const currentTime = Date.now();
               
-              // Check if this is a double tap
+              // Handle double tap
               if (currentTime - lastTapTime < doubleTapDelay) {
-                if (selectionTimer) clearTimeout(selectionTimer);
+                if (touchEndTimer) clearTimeout(touchEndTimer);
+                isSelecting = false;
                 return; // Let default behavior handle text selection
               }
               
               lastTapTime = currentTime;
 
-              // For immediate long press (over 500ms), trigger highlighting
+              // If we're selecting text
+              if (isSelecting) {
+                const selection = window.getSelection();
+                if (selection && !selection.isCollapsed) {
+                  // Don't clear the selection
+                  e.preventDefault();
+                  return;
+                }
+              }
+
+              // For long press, trigger highlighting
               if (touchDuration > 500) {
                 const selection = window.getSelection();
                 if (selection && !selection.isCollapsed) {
-                  if (selectionTimer) clearTimeout(selectionTimer);
-                  
-                  // Prevent default selection behavior
                   e.preventDefault();
                   
-                  // Dispatch mouseup event to trigger highlighting
+                  // Create and dispatch mouseup event to trigger highlighting
                   const mouseEvent = new MouseEvent('mouseup', {
                     bubbles: true,
                     cancelable: true,
                     view: window
                   });
-                  e.target.dispatchEvent(mouseEvent);
+                  articleContent.dispatchEvent(mouseEvent);
                 }
               }
             });
 
-            // Clean up selection timer when selection is cleared
+            // Clean up selection timer when touch is cancelled
             articleContent.addEventListener('touchcancel', function() {
-              if (selectionTimer) clearTimeout(selectionTimer);
+              if (touchEndTimer) {
+                clearTimeout(touchEndTimer);
+              }
+              isSelecting = false;
             });
 
-            // Allow native text selection on double tap
-            articleContent.addEventListener('dblclick', function(e) {
-              if (selectionTimer) clearTimeout(selectionTimer);
-            });
-
-            // Prevent the context menu from appearing on long press
+            // Prevent the context menu on long press
             articleContent.addEventListener('contextmenu', function(e) {
               e.preventDefault();
             });
+
+            // Prevent default touch behavior that might interfere with selection
+            articleContent.addEventListener('touchmove', function(e) {
+              if (isSelecting) {
+                e.stopPropagation();
+              }
+            }, { passive: true });
           });
         `}} />
       </div>
