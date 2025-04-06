@@ -5,6 +5,7 @@ import Link from 'next/link';
 import BookmarkCard from '@/components/BookmarkCard';
 import { PageTransition } from '@/components/ui/PageTransition';
 import { motion } from 'framer-motion';
+import LoadingAnimation from '@/components/ui/LoadingAnimation';
 import useSWR from 'swr';
 
 interface Bookmark {
@@ -43,21 +44,8 @@ export default function BookmarksPage() {
   if (authLoading || bookmarksLoading) {
     return (
       <PageTransition>
-        <div className="min-h-screen bg-gray-50 p-8">
-          <div className="mx-auto max-w-7xl">
-            <motion.div 
-              initial={{ scale: 0.9 }}
-              animate={{ scale: 1 }}
-              transition={{ 
-                repeat: Infinity, 
-                repeatType: "reverse", 
-                duration: 1 
-              }}
-              className="border-4 border-black bg-white p-8 text-center shadow-[8px_8px_0px_0px_rgba(0,0,0,1)]"
-            >
-              <p className="text-xl font-bold">Loading bookmarks...</p>
-            </motion.div>
-          </div>
+        <div className="min-h-screen bg-gray-50 p-4 sm:p-8 flex items-center justify-center">
+          <LoadingAnimation size="lg" text="Loading bookmarks..." />
         </div>
       </PageTransition>
     );

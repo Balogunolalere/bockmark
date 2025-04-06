@@ -554,41 +554,49 @@ export default function ReaderPage() {
     sortedHighlights.forEach(applyHighlight);
 
     // Add click handler for highlights
-    const handleHighlightClick = (event: MouseEvent) => {
+    const handleHighlightClick = (event: MouseEvent | TouchEvent) => {
       const target = event.target as HTMLElement;
-      if (target.classList.contains('highlight')) {
+      if (!target.classList.contains('highlight')) return;
+
+      // Don't remove highlight if there's a text selection
+      const selection = window.getSelection();
+      if (selection && !selection.isCollapsed) {
+        event.preventDefault();
+        event.stopPropagation();
+        return;
+      }
+
+      // Only proceed with removal if explicitly intended (e.g. double tap or long press)
+      if (confirm('Remove this highlight?')) {
         const startOffset = parseInt(target.dataset.startOffset || '0', 10);
         const endOffset = parseInt(target.dataset.endOffset || '0', 10);
         
-        if (confirm('Remove this highlight?')) {
-          (async () => {
-            try {
-              const response = await fetch('/api/bookmarks', {
-                method: 'PATCH',
-                headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify({
-                  id,
-                  highlightOperation: 'remove',
-                  highlight: { startOffset, endOffset }
-                }),
-              });
+        (async () => {
+          try {
+            const response = await fetch('/api/bookmarks', {
+              method: 'PATCH',
+              headers: { 'Content-Type': 'application/json' },
+              body: JSON.stringify({
+                id,
+                highlightOperation: 'remove',
+                highlight: { startOffset, endOffset }
+              }),
+            });
 
-              if (!response.ok) {
-                throw new Error('Failed to remove highlight');
-              }
-
-              setHighlights(prev => 
-                prev.filter(h => h.startOffset !== startOffset || h.endOffset !== endOffset)
-              );
-
-              // Remove the highlight span from DOM
-              target.outerHTML = target.innerHTML;
-            } catch (error) {
-              console.error('Error removing highlight:', error);
-              alert('Failed to remove highlight');
+            if (!response.ok) {
+              throw new Error('Failed to remove highlight');
             }
-          })();
-        }
+
+            setHighlights(prev => 
+              prev.filter(h => h.startOffset !== startOffset || h.endOffset !== endOffset)
+            );
+
+            target.outerHTML = target.innerHTML;
+          } catch (error) {
+            console.error('Error removing highlight:', error);
+            alert('Failed to remove highlight');
+          }
+        })();
       }
     };
 
@@ -617,15 +625,7 @@ export default function ReaderPage() {
     return (
       <PageTransition>
         <div className="min-h-screen bg-gray-50 p-4 sm:p-8 flex items-center justify-center">
-          <div className="mx-auto max-w-3xl w-full">
-            <motion.div 
-              initial={{ opacity: 0, scale: 0.9 }}
-              animate={{ opacity: 1, scale: 1 }}
-              className="border-4 border-black bg-white p-8 text-center shadow-[8px_8px_0px_0px_rgba(0,0,0,1)]"
-            >
-              <LoadingAnimation size="lg" text="Loading article..." />
-            </motion.div>
-          </div>
+          <LoadingAnimation size="lg" text="Loading article..." />
         </div>
       </PageTransition>
     );

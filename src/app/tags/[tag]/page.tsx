@@ -5,6 +5,8 @@ import { useParams, useRouter } from 'next/navigation';
 import { useAuth } from '@/hooks/useAuth';
 import Link from 'next/link';
 import BookmarkCard from '@/components/BookmarkCard';
+import { PageTransition } from '@/components/ui/PageTransition';
+import LoadingAnimation from '@/components/ui/LoadingAnimation';
 import useSWR from 'swr';
 
 interface Bookmark {
@@ -32,7 +34,7 @@ export default function TagPage() {
 
   const { data: allBookmarks = [], isLoading, mutate } = useSWR<Bookmark[]>(
     status === 'authenticated' ? '/api/bookmarks' : null,
-    async (url) => {
+    async (url: string) => {
       const res = await fetch(url);
       if (!res.ok) throw new Error('Failed to fetch bookmarks');
       return res.json();
@@ -45,12 +47,12 @@ export default function TagPage() {
   );
 
   // Filter bookmarks with the current tag
-  const bookmarks = allBookmarks.filter(b => b.tags?.includes(tag));
+  const bookmarks = allBookmarks.filter((b: Bookmark) => b.tags?.includes(tag));
 
   const handleDelete = async (bookmarkId: string) => {
     try {
       // Optimistically update the UI
-      const updatedBookmarks = allBookmarks.filter(b => b._id !== bookmarkId);
+      const updatedBookmarks = allBookmarks.filter((b: Bookmark) => b._id !== bookmarkId);
       mutate(updatedBookmarks, false);
     } catch (error) {
       console.error('Error deleting bookmark:', error);
@@ -65,6 +67,16 @@ export default function TagPage() {
     }
     return a.title.localeCompare(b.title);
   });
+
+  if (isLoading) {
+    return (
+      <PageTransition>
+        <div className="min-h-screen bg-gray-50 p-4 sm:p-8 flex items-center justify-center">
+          <LoadingAnimation size="lg" text="Loading tagged bookmarks..." />
+        </div>
+      </PageTransition>
+    );
+  }
 
   return (
     <div className="min-h-screen bg-gray-50">
@@ -109,11 +121,7 @@ export default function TagPage() {
 
       <main className="mx-auto max-w-7xl px-6 py-8">
         {/* Bookmarks Grid */}
-        {isLoading ? (
-          <div className="border-4 border-black bg-white p-8 text-center">
-            <p className="text-xl font-bold">Loading bookmarks...</p>
-          </div>
-        ) : sortedBookmarks.length === 0 ? (
+        {sortedBookmarks.length === 0 ? (
           <div className="border-4 border-black bg-white p-8 text-center">
             <p className="text-xl font-bold">No bookmarks found with this tag</p>
           </div>

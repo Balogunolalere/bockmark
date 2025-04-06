@@ -5,6 +5,8 @@ import { useAuth } from '@/hooks/useAuth';
 import { signOut } from 'next-auth/react';
 import Link from 'next/link';
 import BookmarkCard from '@/components/BookmarkCard';
+import { PageTransition } from '@/components/ui/PageTransition';
+import LoadingAnimation from '@/components/ui/LoadingAnimation';
 
 interface Bookmark {
   _id: string;
@@ -59,7 +61,13 @@ export default function RecentPage() {
   };
 
   if (isLoading || loading) {
-    return <div>Loading...</div>;
+    return (
+      <PageTransition>
+        <div className="min-h-screen bg-gray-50 p-4 sm:p-8 flex items-center justify-center">
+          <LoadingAnimation size="lg" text="Loading recent bookmarks..." />
+        </div>
+      </PageTransition>
+    );
   }
 
   if (!isAuthenticated) {
@@ -155,11 +163,7 @@ export default function RecentPage() {
           </div>
         </div>
 
-        {loading ? (
-          <div className="border-4 border-black bg-white p-8 text-center">
-            <p className="text-xl font-bold">Loading bookmarks...</p>
-          </div>
-        ) : filteredBookmarks.length === 0 ? (
+        {filteredBookmarks.length === 0 ? (
           <div className="border-4 border-black bg-white p-8 text-center">
             <p className="text-xl font-bold">No bookmarks found for this time period</p>
           </div>

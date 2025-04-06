@@ -4,6 +4,7 @@ import React, { useState } from 'react';
 import { signIn } from 'next-auth/react';
 import { useRouter } from 'next/navigation';
 import { motion, AnimatePresence } from 'framer-motion';
+import LoadingAnimation from '@/components/ui/LoadingAnimation';
 
 export default function SignUpForm() {
   const [name, setName] = useState('');
@@ -164,13 +165,9 @@ export default function SignUpForm() {
         className="w-full bg-lime-400 border-4 border-black px-6 sm:px-8 py-2 sm:py-3 text-base sm:text-lg font-bold text-black shadow-[4px_4px_0px_0px_rgba(0,0,0,1)] transition-all hover:translate-x-[2px] hover:translate-y-[2px] hover:shadow-none disabled:opacity-50 disabled:cursor-not-allowed"
       >
         {isSubmitting ? (
-          <motion.span
-            initial={{ opacity: 0 }}
-            animate={{ opacity: 1 }}
-            transition={{ duration: 0.2 }}
-          >
-            Creating account...
-          </motion.span>
+          <div className="flex items-center justify-center">
+            <LoadingAnimation size="md" text="Creating account..." />
+          </div>
         ) : (
           "Create Account"
         )}

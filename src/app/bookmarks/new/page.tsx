@@ -6,6 +6,7 @@ import { useAuth } from '@/hooks/useAuth';
 import Link from 'next/link';
 import { motion } from 'framer-motion';
 import { PageTransition } from '@/components/ui/PageTransition';
+import LoadingAnimation from '@/components/ui/LoadingAnimation';
 
 interface BookmarkFormData {
   url: string;
@@ -44,21 +45,8 @@ export default function NewBookmarkPage() {
   if (isLoading) {
     return (
       <PageTransition>
-        <div className="min-h-screen bg-gray-50 p-8">
-          <div className="mx-auto max-w-2xl">
-            <motion.div 
-              initial={{ scale: 0.9 }}
-              animate={{ scale: 1 }}
-              transition={{ 
-                repeat: Infinity, 
-                repeatType: "reverse", 
-                duration: 1 
-              }}
-              className="border-4 border-black bg-white p-8 text-center shadow-[8px_8px_0px_0px_rgba(0,0,0,1)]"
-            >
-              <p className="text-xl font-bold">Loading...</p>
-            </motion.div>
-          </div>
+        <div className="min-h-screen bg-gray-50 p-4 sm:p-8 flex items-center justify-center">
+          <LoadingAnimation size="lg" text="Loading..." />
         </div>
       </PageTransition>
     );

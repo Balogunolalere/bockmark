@@ -6,6 +6,7 @@ import Link from 'next/link';
 import { signOut } from 'next-auth/react';
 import { useAuth } from '@/hooks/useAuth';
 import { motion } from 'framer-motion';
+import LoadingAnimation from '@/components/ui/LoadingAnimation';
 import useSWR from 'swr';
 import Image from 'next/image';
 
@@ -243,8 +244,8 @@ export default function Home() {
           {/* Main Content */}
           <div className="lg:col-span-9">
             {isLoading ? (
-              <div className="border-4 border-black bg-white p-8 text-center rounded-lg">
-                <p className="text-xl font-bold">Loading bookmarks...</p>
+              <div className="min-h-full flex items-center justify-center py-12">
+                <LoadingAnimation size="lg" text="Loading bookmarks..." />
               </div>
             ) : filteredBookmarks.length === 0 ? (
               <div className="border-4 border-black bg-white p-8 text-center rounded-lg">
